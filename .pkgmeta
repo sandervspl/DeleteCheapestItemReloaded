@@ -1,0 +1,16 @@
+package-as: DeleteCheapestItem
+
+ignore:
+  - .busted
+  - .cache
+  - .github
+  - .gitattributes
+  - .gitignore
+  - AGENTS.md
+  - Tests
+  - scripts
+  - docs
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

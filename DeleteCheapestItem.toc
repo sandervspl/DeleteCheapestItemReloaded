@@ -1,0 +1,14 @@
+## Interface: 11509, 20506, 50504, 16001
+## Title: DeleteCheapestItem Reloaded
+## Version: @project-version@
+## Notes: Find the least valuable bag stacks to delete or sell when your inventory is full.
+## Author: Sander Vispoel (sandervspl)
+## X-Credits: Original addon by <Night Shift> Suey; previous CurseForge maintainer CriitzLeFleur
+## X-Website: https://github.com/sandervspl/DeleteCheapestItemReloaded
+## X-License: All Rights Reserved
+## Category-enUS: Bags & Inventory
+## OptionalDeps: Auctionator, AuctionLite, Auc-Advanced, AuctionMaster, TradeSkillMaster
+## SavedVariablesPerCharacter: DCI_DB
+
+Localization.lua
+DeleteCheapestItem.lua

@@ -1,0 +1,4 @@
+.cache/
+.release/
+.DS_Store
+luac.out
