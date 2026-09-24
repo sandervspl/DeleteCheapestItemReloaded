@@ -35,8 +35,25 @@ for _, client in ipairs(Helpers.clients) do
             assert.equals("DeleteCheapestItem Reloaded", env.DCI_TitleText.text)
             assert.equals("DeleteCheapestItem Reloaded", env.registeredCategory.name)
             assert.equals("Delete", env.DCI_DeleteButton1.text)
+            if client.game == "camelot" then
+                -- The native border is above content; title controls must stay above it.
+                assert.equals(env.DCIFrame.TitleContainer, env.DCI_TitleText.parent)
+                assert.is_false(env.DCIFrame.TitleContainer.TitleText:IsShown())
+                local borderLevel = env.DCIFrame.NineSlice:GetFrameLevel()
+                assert.is_true(env.DCI_TitleText:GetFrameLevel() > borderLevel)
+                assert.is_true(env.DCI_DragFrame:GetFrameLevel() > borderLevel)
+                assert.is_true(env.DCI_TitleInfoButton:GetFrameLevel() > borderLevel)
+                assert.is_true(env.DCIFrame.CloseButton:GetFrameLevel() > borderLevel)
+            else
+                assert.is_nil(env.DCIFrame.NineSlice)
+                assert.equals(env.DCIFrame, env.DCI_TitleText.parent)
+            end
             env.DCI_TitleInfoButton:Fire("OnMouseUp")
             assert.equals(42, env.openedCategory)
+            env.DCIFrame.CloseButton:Fire("OnClick")
+            assert.is_false(env.DCIFrame:IsShown())
+            env.SlashCmdList.DCI()
+            assert.is_true(env.DCIFrame:IsShown())
             env.SlashCmdList.DCI()
             assert.is_false(env.DCIFrame:IsShown())
         end)

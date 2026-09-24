@@ -7,6 +7,10 @@ local addonName, DCI = ...
 local L = DCI.L
 DCI_DB = DCI_DB or {}
 
+-- Limit native bronze styling to Forever's interface range.
+local _, _, _, interfaceVersion = GetBuildInfo()
+local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
+
 --constants & magic numbers
 DCI.ADDON_TITLE = "DeleteCheapestItem Reloaded"
 DCI.ADDON_VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version")
@@ -702,12 +706,23 @@ function DCI.OpenSettings()
     end
 end
 
+local function CreateMainFrame()
+    -- This is the base used by Forever's native loot panel, including its bronze art.
+    local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
+    local frame = CreateFrame("Frame", "DCIFrame", UIParent, template)
+    if isForever then
+        -- Unlike BasicFrameTemplate, the flat panel does not include a close button.
+        frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
+    end
+    return frame
+end
+
 --function to create and show a frame with cheapest items
 function DCI.CreateDCIFrame()
     -- Create a frame
     DCI.DebugPrint("Creating DCI Frame elements")
     if DCIFrame == nil then
-        CreateFrame("Frame", "DCIFrame", UIParent, "BasicFrameTemplate")
+        CreateMainFrame()
     end
     DCIFrame:SetSize(290, 240)
     DCIFrame:SetFrameStrata("HIGH")
@@ -727,14 +742,21 @@ function DCI.CreateDCIFrame()
     local DCI_SecondTooltip = CreateFrame("GameTooltip", "DCI_SecondTooltip", DCIFrame, "GameTooltipTemplate")
     DCI_SecondTooltip:Hide()
 
+    -- Keep the title and its controls above Forever's native NineSlice border.
+    local titleParent = DCIFrame
+    if isForever then
+        titleParent = DCIFrame.TitleContainer
+        titleParent.TitleText:Hide()
+    end
+
     --title bar text
-    local DCI_TitleText = DCIFrame:CreateFontString("DCI_TitleText", "OVERLAY", "GameFontNormal")
+    local DCI_TitleText = titleParent:CreateFontString("DCI_TitleText", "OVERLAY", "GameFontNormal")
     DCI_TitleText:SetPoint("TOPLEFT", DCIFrame, "TOPLEFT", 0, 0)
-    DCI_TitleText:SetPoint("BOTTOMRIGHT", DCIFrame, "TOPRIGHT", -25, -24)
+    DCI_TitleText:SetPoint("BOTTOMRIGHT", DCIFrame, "TOPRIGHT", isForever and -50 or -25, -24)
     DCI_TitleText:SetText(DCI.ADDON_TITLE)
 
     --drag frame
-    local DCI_DragFrame = CreateFrame("Frame", "DCI_DragFrame", DCIFrame)
+    local DCI_DragFrame = CreateFrame("Frame", "DCI_DragFrame", titleParent)
     DCI_DragFrame:SetPoint("TOPLEFT", DCI_TitleText, "TOPLEFT", 0, 0)
     DCI_DragFrame:SetPoint("BOTTOMRIGHT", DCI_TitleText, "BOTTOMRIGHT", -20, 0)
 
@@ -755,8 +777,12 @@ function DCI.CreateDCIFrame()
     end)
 
     --title bar info button
-    local DCI_TitleInfoButton = CreateFrame("Button", "DCI_TitleInfoButton", DCIFrame, "UIPanelInfoButton")
-    DCI_TitleInfoButton:SetPoint("TOPRIGHT", DCIFrame, "TOPRIGHT", -21, -3)
+    local DCI_TitleInfoButton = CreateFrame("Button", "DCI_TitleInfoButton", titleParent, "UIPanelInfoButton")
+    if isForever then
+        DCI_TitleInfoButton:SetPoint("TOPRIGHT", DCIFrame.CloseButton, "TOPLEFT", 0, -3)
+    else
+        DCI_TitleInfoButton:SetPoint("TOPRIGHT", DCIFrame, "TOPRIGHT", -21, -3)
+    end
     DCI_TitleInfoButton:SetSize(23, 23)
 
     --title bar info button tooltip
@@ -2187,7 +2213,7 @@ function DCI.HandleEvent(self, event, ...)
 end
 
 --create frame & load events
-local DCIFrame = CreateFrame("Frame", "DCIFrame", UIParent, "BasicFrameTemplate")
+local DCIFrame = CreateMainFrame()
 DCIFrame:Hide()
 DCIFrame:RegisterEvent("ADDON_LOADED")
 DCIFrame:SetScript("OnEvent", DCI.HandleEvent)

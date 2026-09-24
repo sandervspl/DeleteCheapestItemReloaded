@@ -37,12 +37,16 @@ function Helpers.loadAddon(options)
 
     local methods = {}
     local newFrame
-    for name in ("SetFrameStrata SetFrameLevel SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
+    for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
         "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing " ..
         "AddDoubleLine AddLine SetItemByID"):gmatch("%S+") do
         methods[name] = function() end
     end
     function methods:SetScript(event, fn) self.scripts[event] = fn end
+    function methods:SetFrameLevel(level) self.frameLevel = level end
+    function methods:GetFrameLevel()
+        return self.frameLevel or (self.parent and self.parent:GetFrameLevel() + 1) or 0
+    end
     function methods:GetScript(event) return self.scripts[event] end
     function methods:HookScript(event, fn)
         local prior = self.scripts[event]
@@ -82,6 +86,7 @@ function Helpers.loadAddon(options)
     function methods:GetRegions() return unpack(self.regions) end
     function methods:CreateFontString(name)
         local region = newFrame("FontString", name)
+        region.parent = self
         table.insert(self.regions, region)
         return region
     end
@@ -92,7 +97,7 @@ function Helpers.loadAddon(options)
     function methods:SetupMenu(fn) self.menu = fn end
 
     newFrame = function(kind, name, parent, template)
-        local frame = setmetatable({ name = name, children = {}, regions = {}, scripts = {},
+        local frame = setmetatable({ name = name, parent = parent, children = {}, regions = {}, scripts = {},
             events = {}, shown = true, enabled = true }, { __index = methods })
         if name then env[name] = frame end
         if parent then table.insert(parent.children, frame) end
@@ -100,6 +105,19 @@ function Helpers.loadAddon(options)
             frame.ScrollBar = newFrame("Slider", name .. "ScrollBar", frame)
         elseif template == "WowStyle1DropdownTemplate" then
             frame.Text = newFrame("FontString")
+        elseif template == "DefaultPanelFlatTemplate" then
+            assert(env.client.game == "camelot", "Forever's frame template used on another client")
+            frame.NineSlice = newFrame("Frame", nil, frame)
+            frame.NineSlice:SetFrameLevel(500)
+            frame.TitleContainer = newFrame("Frame", nil, frame)
+            frame.TitleContainer:SetFrameLevel(510)
+            frame.TitleContainer.TitleText = frame.TitleContainer:CreateFontString()
+        elseif template == "BasicFrameTemplate" then
+            frame.CloseButton = newFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
+        elseif template == "UIPanelCloseButtonDefaultAnchors" then
+            frame:SetFrameLevel(510)
+            frame:SetPoint("TOPRIGHT", env.client.game == "camelot" and -2 or 1, env.client.game == "camelot" and 1 or 0)
+            frame:SetScript("OnClick", function() env.HideUIPanel(parent) end)
         end
         return frame
     end

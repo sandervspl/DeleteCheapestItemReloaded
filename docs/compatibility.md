@@ -61,6 +61,31 @@ On Forever specifically:
 - `Blizzard_APIDocumentationGenerated/AddOnsDocumentation.lua`: metadata lookup
   through `C_AddOns.GetAddOnMetadata`.
 
+## Forever window styling
+
+Checked against `forever` commit `c6e89983189e`. The addon uses
+`DefaultPanelFlatTemplate` only for the `16xxx` client family, detected using the
+interface return value documented in `Blizzard_APIDocumentationGenerated/BuildDocumentation.lua`.
+Era, Anniversary, and Mists retain `BasicFrameTemplate`.
+
+The native template chain is defined in
+`Blizzard_UIPanels_Game/Mainline/LootFrame.xml`,
+`Blizzard_UIPanels_Game/Mainline/ScrollingFlatPanel.xml`, and
+`Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.xml`. The flat panel uses the
+`ButtonFrameTemplateNoPortrait` layout from
+`Blizzard_SharedXML/Mainline/NineSliceLayouts.lua`, with Forever's artwork offsets
+from `Blizzard_SharedXML/Camelot/NineSliceLayoutOverrides.lua`.
+
+The addon adds the same `UIPanelCloseButtonDefaultAnchors` used by the native loot
+panel; `Blizzard_SharedXML/Camelot/SharedUIPanelTemplates.lua` supplies its Forever
+position. Title controls are parented to the template's title container so they
+remain above the native NineSlice border. No border textures or global Blizzard
+layouts are modified.
+
+The client-matrix tests exercise the close button, Settings button, and title
+layering. In-game verification should also check the bronze border, title dragging,
+and scrolling with a full list of items.
+
 ## Packaging reference
 
 The release workflow uses BigWigsMods/packager commit
