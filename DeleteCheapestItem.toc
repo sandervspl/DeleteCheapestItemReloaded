@@ -5,6 +5,7 @@
 ## Author: Sander Vispoel (sandervspl)
 ## X-Credits: Original addon by <Night Shift> Suey; previous CurseForge maintainer CriitzLeFleur
 ## X-Website: https://github.com/sandervspl/DeleteCheapestItemReloaded
+## X-Curse-Project-ID: 1710300
 ## X-License: All Rights Reserved
 ## Category-enUS: Bags & Inventory
 ## OptionalDeps: Auctionator, AuctionLite, Auc-Advanced, AuctionMaster, TradeSkillMaster
