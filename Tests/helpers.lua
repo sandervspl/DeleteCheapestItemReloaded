@@ -24,6 +24,7 @@ function Helpers.loadAddon(options)
     env.client = options.client or Helpers.clients[1]
     env.bags, env.items, env.loot, env.looted, env.deleted, env.sold = {}, {}, {}, {}, {}, {}
     env.callbacks, env.hooks, env.messages = {}, {}, {}
+    env.timers, env.time = {}, 0
     env.DCI_DB = options.saved or {}
     env.SlashCmdList, env.StaticPopupDialogs = {}, {}
     env.NUM_BAG_SLOTS = 4
@@ -65,6 +66,7 @@ function Helpers.loadAddon(options)
         if self.shown then self.shown = false; self:Fire("OnHide") end
     end
     function methods:IsShown() return self.shown end
+    function methods:IsVisible() return self.shown and (not self.parent or self.parent:IsVisible()) end
     function methods:Enable() self.enabled = true; self:Fire("OnEnable") end
     function methods:Disable() self.enabled = false; self:Fire("OnDisable") end
     function methods:SetChecked(value) self.checked = value end
@@ -139,6 +141,14 @@ function Helpers.loadAddon(options)
     env.DEFAULT_CHAT_FRAME = { AddMessage = function(_, text) table.insert(env.messages, text) end }
     env.GetLocale = function() return options.locale or "enUS" end
     env.GetBuildInfo = function() return "test", "test", "test", env.client.interface end
+    env.GetTime = function() return env.time end
+    env.C_Timer = { After = function(_, callback) table.insert(env.timers, callback) end }
+    function env.runTimers()
+        local timers = env.timers
+        env.timers = {}
+        env.time = env.time + 0.01
+        for _, callback in ipairs(timers) do callback() end
+    end
     env.UnitAffectingCombat = function() return env.inCombat or false end
     env.GetMoneyString = function(amount) return tostring(amount) .. "c" end
     env.HideUIPanel = function(frame) frame:Hide() end
@@ -250,7 +260,7 @@ function Helpers.loadAddon(options)
         return entry
     end
     function env.fire(event, ...)
-        env.DCIFrame:Fire("OnEvent", event, ...)
+        if env.DCIFrame.events[event] then env.DCIFrame:Fire("OnEvent", event, ...) end
     end
     function env.acceptPopup()
         env.StaticPopupDialogs[env.popup.key].OnAccept({}, env.popup.data)

@@ -130,6 +130,7 @@ for _, client in ipairs(Helpers.clients) do
         end)
 
         it("opens on full inventory errors and respects combat visibility", function()
+            env = Helpers.loadAddon({ client = client, saved = { AllowInCombat = false } })
             env.putItem(0, 1, 10)
             env.LootFrame:Show()
             env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)

@@ -21,6 +21,16 @@ DCI.MAX_ITEM_FRAMES = 100
 DCI.PRICE_TYPE_VENDOR, DCI.PRICE_TYPE_AUCTION, DCI.PRICE_TYPE_BEST = 1,2,3
 DCI.DEBUG_OUTPUT_FORCED, DCI.DEBUG_OUTPUT_INFO, DCI.DEBUG_OUTPUT_WARNING, DCI.DEBUG_OUTPUT_ERROR = 0,1,2,3
 DCI.FRAME_PANEL, DCI.FRAME_CHECKBOX, DCI.FRAME_DROPDOWN, DCI.FRAME_FONTSTRING = 0,1,2,3
+local WINDOW_CONTEXT_FREE, WINDOW_CONTEXT_LOOT, WINDOW_CONTEXT_QUESTACCEPT,
+    WINDOW_CONTEXT_QUESTCOMPLETE, WINDOW_CONTEXT_VENDOR, WINDOW_CONTEXT_TRADE,
+    WINDOW_CONTEXT_MAIL, WINDOW_CONTEXT_ROLL = 0,1,2,3,4,5,6,7
+local windowContextNames = { [0] = "free", "loot", "quest accept", "quest reward", "vendor", "trade", "mail", "roll" }
+local pendingLootUpdate
+
+local function IsLootFrameOpen()
+    -- Forever's closing animation can leave the frame shown after LOOT_CLOSED.
+    return LootFrame and LootFrame:IsShown() and DCI.LootOpen ~= false
+end
 
 --metatable for cached item info lookup
 DCI.ItemInfo = setmetatable({}, {
@@ -121,7 +131,85 @@ function DCI.DebugPrint(message, outputType)
     else colorCode = "|cffffffff" --DCI.DEBUG_OUTPUT_FORCED
     end
 
-    DEFAULT_CHAT_FRAME:AddMessage("|cff7f7fff" .. "[" .. DCI.ADDON_TITLE .. "] " .. colorCode .. message)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7f7fff" .. "[" .. DCI.ADDON_TITLE .. "] " .. colorCode .. message .. "|r")
+end
+
+-- Focused visibility diagnostics, separate from the verbose item/price debug output.
+function DCI.TraceWindow(reason, force)
+    if not force and not DCI.WindowDebug and not DCI_DB.DebugOutput then return end
+    local function flag(value) return value and "yes" or "no" end
+    DCI.DebugPrint(string.format(
+        "[window %.2f] %s | shown=%s visible=%s context=%s lootShown=%s lootOpen=%s slots=%d free=%d combat=%s allowCombat=%s autoLoot=%s wait=%s interface=%d",
+        GetTime(), reason, flag(DCIFrame and DCIFrame:IsShown()), flag(DCIFrame and DCIFrame:IsVisible()),
+        windowContextNames[DCI.windowContext] or "unset", flag(LootFrame and LootFrame:IsShown()),
+        tostring(DCI.LootOpen), GetNumLootItems(), DCI.CountFreeBagSlots(), flag(UnitAffectingCombat("player")),
+        flag(DCI_DB.AllowInCombat), flag(DCI_DB.Auto_Loot), flag(DCI.InvErrWaitForLootFrame), interfaceVersion),
+        DCI.DEBUG_OUTPUT_FORCED)
+end
+
+function DCI.HideWindow(reason)
+    DCI.HideReason = reason
+    DCIFrame:Hide()
+    DCI.HideReason = nil
+end
+
+function DCI.TryShowLootWindow(reason)
+    if not DCI_DB.Auto_Loot then
+        DCI.TraceWindow(reason .. ": automatic looting disabled")
+        return
+    end
+    if not DCI.InvErrWaitForLootFrame and not DCIFrame:IsShown() then
+        DCI.TraceWindow(reason .. ": no pending inventory error")
+        return
+    end
+    if not IsLootFrameOpen() then
+        DCI.TraceWindow(reason .. ": waiting for loot frame")
+        return
+    end
+    DCI.TraceWindow(reason .. ": updating loot window")
+    DCI.UpdateDCIFrame()
+end
+
+function DCI.QueueLootUpdate(reason)
+    if pendingLootUpdate then return end
+    local request = {}
+    pendingLootUpdate = request
+    -- Let Blizzard finish handling the event and positioning its loot frame.
+    C_Timer.After(0, function()
+        if pendingLootUpdate ~= request then return end
+        pendingLootUpdate = nil
+        DCI.TryShowLootWindow(reason .. " (deferred)")
+    end)
+end
+
+function DCI.HookLootFrame()
+    if not LootFrame or LootFrame.DCIVisibilityHooked then return end
+    LootFrame.DCIVisibilityHooked = true
+    LootFrame:HookScript("OnShow", function()
+        DCI.TraceWindow("LootFrame shown")
+        if DCI_DB.Auto_Loot and (DCI.InvErrWaitForLootFrame or DCIFrame:IsShown()) then
+            DCI.QueueLootUpdate("LootFrame shown")
+        end
+    end)
+    LootFrame:HookScript("OnHide", function() DCI.TraceWindow("LootFrame hidden") end)
+end
+
+function DCI.HandleSlashCommand(message)
+    local command = (message or ""):lower():match("^%s*(.-)%s*$")
+    if command == "" then
+        DCI.TraceWindow("/dci toggle")
+        DCI.ToggleDCIFrame()
+    elseif command == "status" then
+        DCI.TraceWindow("status; last change=" .. (DCI.LastWindowChange or "none"), true)
+    elseif command == "debug" or command == "debug on" or command == "debug off" then
+        if command == "debug" then DCI.WindowDebug = not DCI.WindowDebug
+        else DCI.WindowDebug = command == "debug on" end
+        DCI.RegisterFrameEvents()
+        DCI.DebugPrint("Window debug " .. (DCI.WindowDebug and "ON. Reproduce the problem; /dci debug off stops tracing." or "OFF."), DCI.DEBUG_OUTPUT_FORCED)
+        if DCI.WindowDebug then DCI.TraceWindow("debug enabled", true) end
+    else
+        DCI.DebugPrint("Commands: /dci, /dci debug [on|off], /dci status", DCI.DEBUG_OUTPUT_FORCED)
+    end
 end
 
 --function to format and truncate money string
@@ -714,6 +802,20 @@ local function CreateMainFrame()
         -- Unlike BasicFrameTemplate, the flat panel does not include a close button.
         frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
     end
+    frame:HookScript("OnShow", function()
+        DCI.LastWindowChange = "shown"
+        DCI.TraceWindow("shown")
+    end)
+    frame:HookScript("OnHide", function()
+        local reason = DCI.HideReason or "close button or external hide"
+        DCI.LastWindowChange = "hidden: " .. reason
+        DCI.TraceWindow(DCI.LastWindowChange)
+        if not DCI.HideReason then
+            -- A user dismissal must cancel any queued automatic reopening.
+            DCI.InvErrWaitForLootFrame = false
+            pendingLootUpdate = nil
+        end
+    end)
     return frame
 end
 
@@ -836,7 +938,7 @@ function DCI.CreateDCIFrame()
 
     --top section text 1
     local DCI_TopSection_Text1 = DCIFrame:CreateFontString("DCI_TopSection_Text1", "OVERLAY", "GameFontHighlightSmall")
-    DCI_TopSection_Text1:SetPoint("TOPLEFT", DCIFrame, "TOPLEFT", 8, -31)
+    DCI_TopSection_Text1:SetPoint("TOPLEFT", DCIFrame, "TOPLEFT", isForever and 12 or 8, -31)
     DCI_TopSection_Text1:SetTextColor(0.87, 0.87, 0.87)
     
     local DCI_TopSection_Text2 = DCIFrame:CreateFontString("DCI_TopSection_Text2", "OVERLAY", "GameFontDisableSmall")
@@ -942,16 +1044,6 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     if showFrameAfterUpdate == nil then showFrameAfterUpdate = true end
     DCI.DebugPrint("UpdateDCIFrame " .. (showFrameAfterUpdate and "true" or "false"))
 
-    --magic numbers for window context
-    local WINDOW_CONTEXT_FREE,
-        WINDOW_CONTEXT_LOOT,
-        WINDOW_CONTEXT_QUESTACCEPT,
-        WINDOW_CONTEXT_QUESTCOMPLETE,
-        WINDOW_CONTEXT_VENDOR,
-        WINDOW_CONTEXT_TRADE,
-        WINDOW_CONTEXT_MAIL,
-        WINDOW_CONTEXT_ROLL = 0,1,2,3,4,5,6,7
-
     -- initialize
     -----------------
 
@@ -959,7 +1051,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     if DCIFrame == nil or DCI_TitleText == nil then
         --make frame if its missing
         DCI.CreateDCIFrame()
-        if not showFrameAfterUpdate then DCIFrame:Hide() end
+        if not showFrameAfterUpdate then DCI.HideWindow("initializing hidden window") end
     elseif showFrameAfterUpdate then
         --reset scroll
         DCI_ScrollParent:SetVerticalScroll(0);
@@ -968,18 +1060,19 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     --quit if player is in combat based on global AllowInCombat
     if DCI_DB.AllowInCombat == false and UnitAffectingCombat("player") then
         DCI.DebugPrint("Hiding since player is in combat")
-        DCIFrame:Hide()
+        DCI.HideWindow("combat")
 
-        --if we were on the loot frame, set the flag so the window will reappear on next loot
-        if DCI.windowContext == WINDOW_CONTEXT_LOOT then
+        -- Remember even the first opening attempt, before a loot context was assigned.
+        if DCI_DB.Auto_Loot and IsLootFrameOpen() then
             DCI.DebugPrint("Set wait flag to reappear when we leave combat")
             DCI.InvErrWaitForLootFrame = true
         end
+        DCI.TraceWindow("show blocked by combat")
         return false
     end
 
     --determine window context
-    if DCI_DB.Auto_Loot and LootFrame and LootFrame:IsShown() then
+    if DCI_DB.Auto_Loot and IsLootFrameOpen() then
         DCI.DebugPrint("Window context: Looting")
         DCI.windowContext = WINDOW_CONTEXT_LOOT
     elseif DCI_DB.Auto_QuestAccept and DCI.QuestGaveError and QuestFrameDetailPanel and QuestFrameDetailPanel:IsShown() then
@@ -1052,7 +1145,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             QuestFrame:HookScript("OnHide", function(self)
                 if DCI.windowContext == WINDOW_CONTEXT_QUESTACCEPT or DCI.windowContext == WINDOW_CONTEXT_QUESTCOMPLETE and DCIFrame:IsShown() then
                     DCI.DebugPrint("Hiding with quest frame")
-                    DCIFrame:Hide()
+                    DCI.HideWindow("quest frame hidden")
                 end
             end)
             QuestFrame.DCIHooked = true
@@ -1081,7 +1174,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             TradeFrame:HookScript("OnHide", function(self)
                 if DCI.windowContext == WINDOW_CONTEXT_TRADE and DCIFrame:IsShown() then
                     DCI.DebugPrint("Hiding with trade frame")
-                    DCIFrame:Hide()
+                    DCI.HideWindow("trade frame hidden")
                 end
             end)
             TradeFrame.DCIHooked = true
@@ -1106,7 +1199,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             selectedMailFrame:HookScript("OnHide", function(self)
                 if DCI.windowContext == WINDOW_CONTEXT_MAIL and DCIFrame:IsShown() then
                     DCI.DebugPrint("Hiding with mail frame")
-                    DCIFrame:Hide()
+                    DCI.HideWindow("mail frame hidden")
                 end
             end)
             selectedMailFrame.DCIHooked = true
@@ -1123,7 +1216,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             MerchantFrame:HookScript("OnHide", function(self)
                 if DCI.windowContext == WINDOW_CONTEXT_VENDOR and DCIFrame:IsShown() then
                     DCI.DebugPrint("Hiding with vendor frame")
-                    DCIFrame:Hide()
+                    DCI.HideWindow("merchant frame hidden")
                 end
             end)
             MerchantFrame.DCIHooked = true
@@ -1140,7 +1233,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             GroupLootContainer:HookScript("OnHide", function(self)
                 if DCI.windowContext == WINDOW_CONTEXT_ROLL and DCIFrame:IsShown() then
                     DCI.DebugPrint("Hiding with roll frame")
-                    DCIFrame:Hide()
+                    DCI.HideWindow("roll frame hidden")
                 end
             end)
             GroupLootContainer.DCIHooked = true
@@ -1348,7 +1441,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                     local selectedLootSlot = LootFrame and LootFrame.DCI_LootIndexUserClick
                     DCI.ConfirmAndDeleteBagItem(bag, slot, bagItem, function()
                         if DCI_DB.Auto_Loot and DCI.windowContext == WINDOW_CONTEXT_LOOT
-                            and LootFrame and LootFrame:IsShown() then
+                            and IsLootFrameOpen() then
                             DCI.TakeItemsFromLootWindow(selectedLootSlot)
                             LootFrame.DCI_LootIndexUserClick = nil
                             DCI.UpdateDCIFrame(false)
@@ -1463,6 +1556,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             local itemCharacterLimit = string.len(lootItems[itemIndexToLoot].name)
             local textShrinkCounter = 25 --give up if we try too many times
             local DCIFrame_Width,_ = DCIFrame:GetSize()
+            local topTextPadding = isForever and 24 or 15
             local topText_Width = 0
             repeat
                 DCI.DebugPrint("Item string attempt " .. 26-textShrinkCounter .. " - char limit " ..itemCharacterLimit .. " - new string ".. shortLink)
@@ -1482,9 +1576,9 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 shortLink = string.gsub(lootItems[itemIndexToLoot].link, escapedName, function()
                     return string.sub(lootItems[itemIndexToLoot].name, 1, itemCharacterLimit) .. "..."
                 end)
-            until itemCharacterLimit < 5 or (topText_Width + 15) < DCIFrame_Width or textShrinkCounter <= 0
+            until itemCharacterLimit < 5 or (topText_Width + topTextPadding) < DCIFrame_Width or textShrinkCounter <= 0
             --if we're still too long just use shortened name
-            if (topText_Width + 15) > DCIFrame_Width then
+            if (topText_Width + topTextPadding) > DCIFrame_Width then
                 DCI.DebugPrint("Giving up on shortening, just use 15 chars of name")
                 topSection_Text1 = string.format(text1_verbString, quantityString .. string.sub(lootItems[itemIndexToLoot].name, 1, 15)) .. "...  (" .. text1_valueString .. ")"
                 DCI_TopSection_Text1:SetText(topSection_Text1)
@@ -1526,7 +1620,9 @@ end
 --function to toggle main window
 function DCI.ToggleDCIFrame()
     if DCIFrame and DCIFrame:IsShown() then
-        DCIFrame:Hide()
+        DCI.InvErrWaitForLootFrame = false
+        pendingLootUpdate = nil
+        DCI.HideWindow("/dci toggle")
     else
         DCI.UpdateDCIFrame()
     end
@@ -1859,7 +1955,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI_DB.AuctionPriceHidePoorQuality == nil then DCI_DB.AuctionPriceHidePoorQuality = true end
     if DCI_DB.AuctionGreyUnderVendor == nil then DCI_DB.AuctionGreyUnderVendor = true end
     if DCI_DB.HideSoulbound == nil then DCI_DB.HideSoulbound = true end
-    if DCI_DB.AllowInCombat == nil then DCI_DB.AllowInCombat = false end
+    if DCI_DB.AllowInCombat == nil then DCI_DB.AllowInCombat = true end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
@@ -1886,13 +1982,13 @@ function DCI.RegisterFrameEvents()
     DCIFrame:RegisterEvent("BAG_UPDATE")
     DCIFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
-    if DCI_DB.Auto_Loot or DCI_DB.Auto_Vendor or DCI_DB.Auto_QuestAccept then
+    if DCI_DB.Auto_Loot or DCI_DB.Auto_Vendor or DCI_DB.Auto_QuestAccept or DCI_DB.Auto_Mail or DCI.WindowDebug then
         DCIFrame:RegisterEvent("UI_ERROR_MESSAGE")
     else
         DCIFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     end
 
-    if not DCI_DB.AllowInCombat then
+    if not DCI_DB.AllowInCombat or DCI.WindowDebug then
         DCIFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
         DCIFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     else
@@ -1900,12 +1996,16 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
 
-    if DCI_DB.Auto_Loot then
+    if DCI_DB.Auto_Loot or DCI.WindowDebug then
         DCIFrame:RegisterEvent("LOOT_CLOSED")
         DCIFrame:RegisterEvent("LOOT_OPENED")
     else
         DCIFrame:UnregisterEvent("LOOT_CLOSED")
         DCIFrame:UnregisterEvent("LOOT_OPENED")
+    end
+    if not DCI_DB.Auto_Loot then
+        DCI.InvErrWaitForLootFrame = false
+        pendingLootUpdate = nil
     end
 
     if DCI_DB.Auto_Trade then
@@ -1951,6 +2051,23 @@ end
 function DCI.HandleEvent(self, event, ...)
     local arg1,arg2 = ...
 
+    if event == "LOOT_OPENED" then
+        DCI.LootOpen = true
+        DCI.HookLootFrame()
+        DCI.TraceWindow("LOOT_OPENED autoLoot=" .. tostring(arg1))
+    elseif event == "LOOT_CLOSED" then
+        DCI.LootOpen = false
+        DCI.InvErrWaitForLootFrame = false
+        pendingLootUpdate = nil
+        if LootFrame then LootFrame.DCI_LootIndexUserClick = nil end
+        DCI.TraceWindow("LOOT_CLOSED")
+    elseif event == "UI_ERROR_MESSAGE" then
+        DCI.TraceWindow("UI_ERROR_MESSAGE type=" .. tostring(arg1) .. " message=" .. tostring(arg2)
+            .. (arg2 == ERR_INV_FULL and " (ERR_INV_FULL)" or " (ignored)"))
+    elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+        DCI.TraceWindow(event)
+    end
+
     --debug
     if event ~= "UI_ERROR_MESSAGE" and event ~= "BAG_UPDATE" then
         DCI.DebugPrint("***** " .. event .. " - " .. DCI.dump(...))
@@ -1963,6 +2080,7 @@ function DCI.HandleEvent(self, event, ...)
         --initialize
         DCI.InitializeSavedVariables()
         DCI.RegisterFrameEvents()
+        DCI.HookLootFrame()
 
         --globals
         DCI.InvErrWaitForLootFrame = false
@@ -1971,7 +2089,7 @@ function DCI.HandleEvent(self, event, ...)
 
         -- Register slash command
         SLASH_DCI1 = "/dci"
-        SlashCmdList["DCI"] = DCI.ToggleDCIFrame
+        SlashCmdList["DCI"] = DCI.HandleSlashCommand
 
         --create settings screen
         DCI.CreateDCISettings()
@@ -1997,15 +2115,17 @@ function DCI.HandleEvent(self, event, ...)
     --update frame if bag updates while it is open
     if event == "BAG_UPDATE" and DCIFrame and DCIFrame:IsShown() then
         DCI.DebugPrint("Updating window due to bag update")
-        DCI.UpdateDCIFrame()
+        DCI.UpdateDCIFrame(false)
     end
 
     --hide if we enter combat, based on global AllowInCombat
     if DCI_DB.AllowInCombat == false and event == "PLAYER_REGEN_DISABLED" then
         if DCIFrame and DCIFrame:IsShown() then
             DCI.DebugPrint("Hiding due to combat, setting wait flag*")
-            DCIFrame:Hide()
-            DCI.InvErrWaitForLootFrame = true
+            if DCI.windowContext == WINDOW_CONTEXT_LOOT and IsLootFrameOpen() then
+                DCI.InvErrWaitForLootFrame = true
+            end
+            DCI.HideWindow("combat")
         end
     end
 
@@ -2018,10 +2138,13 @@ function DCI.HandleEvent(self, event, ...)
             DCI.UpdateDCIFrame(false)
 
         --if loot window is open
-        elseif LootFrame and LootFrame:IsShown() then
+        elseif IsLootFrameOpen() then
             DCI.DebugPrint("Assuming inv error was from LootFrame")
             if DCI_DB.Auto_Loot then
-                DCI.UpdateDCIFrame()
+                DCI.InvErrWaitForLootFrame = true
+                DCI.TryShowLootWindow("inventory full")
+            else
+                DCI.TraceWindow("inventory full: automatic looting disabled")
             end
 
         --if vendor window is open
@@ -2047,6 +2170,8 @@ function DCI.HandleEvent(self, event, ...)
         elseif DCI_DB.Auto_Loot then
             DCI.DebugPrint("Assuming inv error was from looting, setting flag to wait for loot window")
             DCI.InvErrWaitForLootFrame = true
+            DCI.TraceWindow("inventory full: waiting for loot frame")
+            DCI.QueueLootUpdate("inventory full")
         end
     end
 
@@ -2068,34 +2193,21 @@ function DCI.HandleEvent(self, event, ...)
 
         --show with loot window, if we already saw the inv error, or if the window is open already
         if event == "LOOT_OPENED" and (DCI.InvErrWaitForLootFrame or (DCIFrame and DCIFrame:IsShown())) then
-            DCI.DebugPrint("Loot window opened")
-            --if we're not in combat (or dont care)
-            if DCI_DB.AllowInCombat == true or not UnitAffectingCombat("player") then
-                DCI.DebugPrint("Not in combat or don't care - update window")
-                DCI.UpdateDCIFrame()
-            end
+            DCI.TryShowLootWindow("LOOT_OPENED")
+            DCI.QueueLootUpdate("LOOT_OPENED")
         end
 
         --hide with loot window closing
         if event == "LOOT_CLOSED" then
-            if DCIFrame and DCIFrame:IsShown() then
+            if DCIFrame and DCIFrame:IsShown() and DCI.windowContext == WINDOW_CONTEXT_LOOT then
                 DCI.DebugPrint("Closing with loot window. reset wait flag")
-                DCIFrame:Hide()
-                DCI.InvErrWaitForLootFrame = false
+                DCI.HideWindow("LOOT_CLOSED")
             end
         end
 
         --if we leave combat and DCI.InvErrWaitForLootFrame is true
         if event == "PLAYER_REGEN_ENABLED" and DCI_DB.AllowInCombat == false and DCI.InvErrWaitForLootFrame then
-            --reset flag
-            DCI.DebugPrint("Combat ended and wait flag is on, reset flag")
-            DCI.InvErrWaitForLootFrame = false
-
-            --if loot window is already open, update dci
-            if LootFrame and LootFrame:IsShown() then
-                DCI.DebugPrint("Loot is open and flag was set, so update window")
-                DCI.UpdateDCIFrame()
-            end
+            DCI.TryShowLootWindow("combat ended")
         end
     end
     
@@ -2214,6 +2326,6 @@ end
 
 --create frame & load events
 local DCIFrame = CreateMainFrame()
-DCIFrame:Hide()
+DCI.HideWindow("startup")
 DCIFrame:RegisterEvent("ADDON_LOADED")
 DCIFrame:SetScript("OnEvent", DCI.HandleEvent)

@@ -82,9 +82,54 @@ position. Title controls are parented to the template's title container so they
 remain above the native NineSlice border. No border textures or global Blizzard
 layouts are modified.
 
+The two status lines use a 12-pixel left inset on Forever to clear the thicker
+border; the second line follows the first line's anchor. Loot item-name shortening
+also reserves 12 pixels on each side. Other clients retain their existing spacing.
+
 The client-matrix tests exercise the close button, Settings button, and title
 layering. In-game verification should also check the bronze border, title dragging,
 and scrolling with a full list of items.
+
+## Loot window lifecycle and diagnostics
+
+Rechecked `classic_era` (`33e177d9bf38`), `classic_anniversary` (`1463c686270b`),
+`classic` (`cde55d0033e8`), and `forever` (`c6e89983189e`) for the visibility fixes.
+The three Classic branches' `Blizzard_UIPanels_Game/Classic/LootFrame.lua` and
+Forever's `Blizzard_UIPanels_Game/Mainline/LootFrame.lua` show the native loot frame
+inside their own `LOOT_OPENED` handler. The addon must not assume that frame is
+already shown when its handler runs. A pending inventory-error request is retried
+after the event handlers finish and when `LootFrame` is shown.
+
+Forever's `Blizzard_UIPanels_Game/Mainline/ScrollingFlatPanel.lua` closes the panel
+with an animation before hiding it. Track `LOOT_CLOSED` independently from
+`LootFrame:IsShown()` so the lingering frame does not restore a finished session.
+Loot closure clears pending requests even when the addon is hidden by combat,
+and only closes the addon when it is displaying loot. User dismissal cancels a
+queued retry. Combat blocking preserves the first opening request even before
+the addon has assigned its window context.
+
+On all four branches, `Blizzard_APIDocumentationGenerated/LootDocumentation.lua`
+defines the loot events, `SystemDocumentation.lua` defines the error type/message
+payload, and `UITimerDocumentation.lua` defines `C_Timer.After`. Forever's
+`SystemTimeDocumentation.lua` and `SimpleScriptRegionAPIDocumentation.lua` were
+also checked for diagnostic timestamps and actual frame visibility.
+
+`Tests/window_visibility_spec.lua` reproduces event-order and combat failures,
+checks rapid close/reopen and the animated-close case, and verifies focused chat
+diagnostics. The reported intermittent in-game disappearance still needs a trace
+from the affected session to confirm its exact cause; the tests simulate these
+events and do not run the client.
+
+## Combat visibility default
+
+On 2026-09-25, checked `UnitDocumentation.lua` under
+`Blizzard_APIDocumentationGenerated` for `PLAYER_REGEN_DISABLED` and
+`PLAYER_REGEN_ENABLED` on `classic_era` (`33e177d9bf38`), `classic_anniversary`
+(`1463c686270b`), `classic` (`cde55d0033e8`), and `forever` (`bd2470aed543`).
+New and reset settings now allow the window in combat. Saved choices, including
+an explicit `false` and the original addon's legacy setting, remain intact.
+The existing client-matrix scenarios cover repeated combat transitions, bag
+updates, the saved opt-out, and resetting defaults.
 
 ## Packaging reference
 

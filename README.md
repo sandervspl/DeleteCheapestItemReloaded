@@ -36,9 +36,31 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
 - Configure quality filters, soulbound filtering, confirmation, automatic display,
   combat visibility, and optional auction prices in Settings.
 
+**Allow window in combat** is enabled for new characters and when resetting
+settings. Existing saved choices are preserved; if it is currently off, enable it
+under **Window Behavior** to keep the window visible during combat.
+
 The inherited auction integrations are Auctionator, AuctionLite, Auctioneer,
 AuctionMaster, and TradeSkillMaster. Without one, the addon uses vendor values.
 Existing translations are retained; the new product name is the same in every locale.
+
+## Debugging a missing or disappearing window
+
+After installing the updated files and running `/reload`, use `/dci debug on`,
+then reproduce the problem. Chat will show timestamped loot/error/combat events,
+window show/hide reasons, pending opening requests, free bag slots, and the current
+combat/automatic-loot settings. This focused trace does not dump item prices.
+
+Use `/dci status` immediately after a disappearance for the current state and last
+visibility change; this command does not open or close the window. Share the chat
+lines from the inventory-full error through the disappearance. `/dci debug off`
+stops the focused trace, and `/reload` also turns it off. The existing **Show Debug
+Output** setting independently enables the more verbose diagnostics.
+
+`hidden: LOOT_CLOSED` means the game reported that looting ended; `hidden: combat`
+means the combat visibility setting hid the window. `close button or external hide`
+means the hide did not come from one of the addon's automatic closing decisions.
+`shown=yes visible=no` can indicate that a parent frame, such as the main UI, is hidden.
 
 ## Development and tests
 
@@ -101,21 +123,47 @@ addon in the character selection AddOns list.
 
 ## Releases
 
-Push a version tag such as `v7.0.0` to run `.github/workflows/release.yml`. It runs
+Push a version tag such as `v0.0.2` to run `.github/workflows/release.yml`. It runs
 the tests first, then uses the BigWigs packager to build and publish one ZIP for all
-four clients. The archive is named `DeleteCheapestItem-Reloaded-v7.0.0.zip`; the
+four clients. The archive is named `DeleteCheapestItem-Reloaded-v0.0.2.zip`; the
 packager substitutes the tag for `@project-version@`. Unpackaged checkouts display
 `7.0.0-dev`.
 
-The GitHub job uses `GITHUB_TOKEN` with `contents: write`. To add CurseForge or Wago
-distribution, create a project for Reloaded, add its `X-Curse-Project-ID` or
-`X-Wago-ID` to the TOC, and configure `CF_API_KEY` or `WAGO_API_TOKEN` repository
-secrets. No original-author or BuffTimers project IDs are reused.
+The TOC identifies the [Reloaded CurseForge project](https://www.curseforge.com/wow/addons/delete-cheapest-item-reloaded)
+with `## X-Curse-Project-ID: 1710300`. The release workflow passes the repository's
+`CF_API_KEY` secret to the packager. This must be a CurseForge author API token
+with access to that project; manage it in GitHub **Settings > Secrets and variables
+> Actions**. GitHub releases use the automatic `GITHUB_TOKEN` with `contents: write`.
+The packager requires both the project ID and token for a CurseForge upload; a
+successful GitHub release alone does not confirm that CurseForge received a file.
 
-If starting with the downloaded source folder, first initialize a Git repository,
-commit the files, and connect it to your GitHub repository. The workflows execute
-on GitHub after that repository receives pushes. This source update does not
-publish a release or configure external project credentials.
+To publish the next version:
+
+1. Review and commit the intended changes, including the TOC's project ID and the
+   changelog. Local uncommitted changes are not included in a release.
+2. Push the commit, then create and push a new version tag on that commit. For
+   example, after committing on `main` (choose an unused version each time):
+
+   ```sh
+   git push origin main
+   git tag -a v0.0.2 -m "Release v0.0.2"
+   git push origin v0.0.2
+   ```
+
+3. Open **Actions > Package and publish addon** and check the packaging step for
+   an upload to CurseForge project `1710300` and its success result.
+4. Check the CurseForge project's Files page or author dashboard. New projects
+   and files may need moderation before appearing publicly.
+
+Re-running the old `v0.0.1` workflow still checks out that old tag, which has no
+CurseForge project ID. Publish a new tag containing the metadata change instead.
+For a manual upload of an existing version, use the packaged
+`DeleteCheapestItem-Reloaded-<version>.zip` from GitHub Releases, not GitHub's
+automatically generated source-code archives.
+
+Wago publishing additionally needs this addon's `X-Wago-ID` in the TOC and the
+`WAGO_API_TOKEN` repository secret. No original-author or BuffTimers project IDs
+are reused.
 
 ## Credits
 
