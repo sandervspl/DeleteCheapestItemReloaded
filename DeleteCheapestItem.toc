@@ -1,4 +1,5 @@
 ## Interface: 11509, 20506, 50504, 16001
+## IconTexture: Interface\AddOns\DeleteCheapestItem\Media\icon
 ## Title: DeleteCheapestItem Reloaded
 ## Version: @project-version@
 ## Notes: Find the least valuable bag stacks to delete or sell when your inventory is full.

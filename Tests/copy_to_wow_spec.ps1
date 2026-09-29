@@ -53,7 +53,7 @@ try {
     & $scriptPath -WowRoot $fixtureRoot
     foreach ($name in $expectedClients) {
         $destination = Join-Path $fixtureRoot "$name\Interface\AddOns\DeleteCheapestItem"
-        foreach ($file in @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua")) {
+        foreach ($file in @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua", "Media\icon.tga")) {
             $expected = (Get-FileHash -LiteralPath (Join-Path $projectRoot $file)).Hash
             $actual = (Get-FileHash -LiteralPath (Join-Path $destination $file)).Hash
             Assert-True ($actual -eq $expected) "Deployed $file differs in $name"

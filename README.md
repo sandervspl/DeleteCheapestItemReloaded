@@ -22,7 +22,9 @@ part of this release's support matrix.
 
 Extract the release ZIP into the selected client's `Interface/AddOns` directory.
 The resulting manifest must be `Interface/AddOns/DeleteCheapestItem/DeleteCheapestItem.toc`.
-For a source checkout, copy the two runtime Lua files and the TOC into that same folder.
+For a source checkout, copy the two runtime Lua files, the TOC, and `Media/icon.tga`
+into that same folder, preserving the `Media` subfolder.
+Rebuild the icon from its source with `python scripts/build-icon.py`.
 
 The installed addon is named **DeleteCheapestItem Reloaded**. Its folder remains
 `DeleteCheapestItem` so WoW continues to load your existing per-character `DCI_DB`
@@ -98,8 +100,8 @@ PowerShell deployment tests run without a WoW installation:
 
 ## Local deployment
 
-The PowerShell helper uses BuffTimers' installation discovery. It copies the three
-runtime files into installed clients, including Classic beta and PTR, and leaves
+The PowerShell helper uses BuffTimers' installation discovery. It copies the runtime
+files and addon icon into installed clients, including Classic beta and PTR, and leaves
 `WTF` and unrelated addon files alone. Preview the detected destinations before copying:
 
 ```powershell

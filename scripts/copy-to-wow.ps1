@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 # Keep the original install identity so WoW loads existing per-character DCI_DB settings.
 $addonName = "DeleteCheapestItem"
 $sourceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$sourceFiles = @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua")
+$sourceFiles = @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua", "Media\icon.tga")
 foreach ($file in $sourceFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot $file) -PathType Leaf)) {
         throw "Required addon file is missing: $file"
@@ -94,7 +94,9 @@ foreach ($client in @($clients.Values | Sort-Object FullName)) {
     if ($PSCmdlet.ShouldProcess($destination, "Copy DeleteCheapestItem Reloaded runtime files")) {
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
         foreach ($file in $sourceFiles) {
-            Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination (Join-Path $destination $file) -Force
+            $destinationFile = Join-Path $destination $file
+            New-Item -ItemType Directory -Path (Split-Path -Parent $destinationFile) -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination $destinationFile -Force
         }
         Write-Host "Copied DeleteCheapestItem Reloaded to $($client.FullName)."
     }
