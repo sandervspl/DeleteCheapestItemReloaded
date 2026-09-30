@@ -25,6 +25,7 @@ function Helpers.loadAddon(options)
     env.bags, env.items, env.loot, env.looted, env.deleted, env.sold = {}, {}, {}, {}, {}, {}
     env.callbacks, env.hooks, env.messages = {}, {}, {}
     env.timers, env.time = {}, 0
+    env.openBags = {}
     env.DCI_DB = options.saved or {}
     env.SlashCmdList, env.StaticPopupDialogs = {}, {}
     env.NUM_BAG_SLOTS = 4
@@ -40,7 +41,7 @@ function Helpers.loadAddon(options)
     local newFrame
     for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
         "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing " ..
-        "AddDoubleLine AddLine SetItemByID"):gmatch("%S+") do
+        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus"):gmatch("%S+") do
         methods[name] = function() end
     end
     function methods:SetScript(event, fn) self.scripts[event] = fn end
@@ -72,6 +73,7 @@ function Helpers.loadAddon(options)
     function methods:SetChecked(value) self.checked = value end
     function methods:GetChecked() return self.checked end
     function methods:SetText(text) self.text = text end
+    function methods:GetText() return self.text end
     function methods:SetDefaultText(text) self.text = text end
     function methods:SetWidth(width) self.width = width end
     function methods:GetWidth() return self.width or 100 end
@@ -132,6 +134,7 @@ function Helpers.loadAddon(options)
     end
     if env.client.scrollBoxLoot then
         env.LootFrame.ScrollBox = newFrame("Frame")
+        newFrame("Frame", "ContainerFrameCombinedBags"):Hide()
     else
         for i = 1, 4 do
             local button = newFrame("Button", "LootButton" .. i)
@@ -150,6 +153,7 @@ function Helpers.loadAddon(options)
         for _, callback in ipairs(timers) do callback() end
     end
     env.UnitAffectingCombat = function() return env.inCombat or false end
+    env.IsBagOpen = function(bag) return env.openBags[bag] or false end
     env.GetMoneyString = function(amount) return tostring(amount) .. "c" end
     env.HideUIPanel = function(frame) frame:Hide() end
     env.C_AddOns = { GetAddOnMetadata = function(name, key)

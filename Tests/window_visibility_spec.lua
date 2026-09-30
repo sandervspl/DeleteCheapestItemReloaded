@@ -147,6 +147,195 @@ for _, client in ipairs(Helpers.clients) do
     end)
 end
 
+for _, client in ipairs(Helpers.clients) do
+    describe(client.name .. " optional inventory triggers", function()
+        it("waits for combat to end while inventory stays open", function()
+            local env = Helpers.loadAddon({ client = client,
+                saved = { Auto_Inventory = true, Auto_Loot = false, AllowInCombat = false } })
+            env.putItem(0, 1, 10)
+            env.inCombat = true
+            env.openBags[0] = true
+            env.fire("BAG_OPEN", 0)
+            env.runTimers()
+            assert.is_false(env.DCIFrame:IsShown())
+
+            env.inCombat = false
+            env.fire("PLAYER_REGEN_ENABLED")
+            assert.is_true(env.DCIFrame:IsShown())
+
+            env.inCombat = true
+            env.fire("PLAYER_REGEN_DISABLED")
+            assert.is_false(env.DCIFrame:IsShown())
+            env.openBags[0] = nil
+            env.fire("BAG_CLOSED", 0)
+            env.runTimers()
+            env.inCombat = false
+            env.fire("PLAYER_REGEN_ENABLED")
+            assert.is_false(env.DCIFrame:IsShown())
+        end)
+
+        it("follows multiple open bags and keeps the window through a loot session", function()
+            local env = Helpers.loadAddon({ client = client, saved = { Auto_Loot = false } })
+            env.putItem(0, 1, 10)
+            assert.is_false(env.DCI_DB.Auto_Inventory)
+            assert.is_false(env.DCI_DB.Auto_LowSlots)
+            assert.equals(0, env.DCI_DB.LowSlotsThreshold)
+
+            local checkbox = env.DCI_Config_Checkbox_Auto_Inventory
+            checkbox:SetChecked(true)
+            checkbox:Fire("OnClick")
+            env.openBags[0] = true
+            env.fire("BAG_OPEN", 0)
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+
+            env.DCIFrame.CloseButton:Fire("OnClick")
+            env.openBags[1] = true
+            env.fire("BAG_OPEN", 1)
+            env.runTimers()
+            assert.is_false(env.DCIFrame:IsShown())
+            env.openBags[0], env.openBags[1] = nil, nil
+            env.fire("BAG_CLOSED", 0)
+            env.fire("BAG_CLOSED", 1)
+            env.runTimers()
+            env.openBags[0] = true
+            env.fire("BAG_OPEN", 0)
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+
+            env.openBags[1] = true
+            env.fire("BAG_OPEN", 1)
+            env.openBags[0] = nil
+            env.fire("BAG_CLOSED", 0)
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+
+            env.DCI_DB.Auto_LowSlots = true
+            env.addon.RegisterFrameEvents()
+            env.loot = { { name = "Loot", link = "item:10:0" } }
+            env.LootFrame:Show()
+            env.fire("LOOT_OPENED", true)
+            env.runTimers()
+            assert.equals(1, env.addon.windowContext)
+            env.fire("LOOT_CLOSED")
+            assert.is_true(env.DCIFrame:IsShown())
+            assert.equals(0, env.addon.windowContext)
+
+            env.openBags[1] = nil
+            env.fire("BAG_CLOSED", 1)
+            env.runTimers()
+            assert.is_false(env.DCIFrame:IsShown())
+
+            env.SlashCmdList.DCI()
+            env.openBags[0] = true
+            env.fire("BAG_OPEN", 0)
+            env.openBags[0] = nil
+            env.fire("BAG_CLOSED", 0)
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+        end)
+
+        it("opens at the configured free-slot threshold during looting and respects dismissal", function()
+            local env = Helpers.loadAddon({ client = client, saved = { Auto_Loot = false } })
+            env.bags[0] = { size = 5, slots = {} }
+            env.putItem(0, 1, 10)
+            env.loot = { { name = "Loot", link = "item:10:0" } }
+            local checkbox = env.DCI_Config_Checkbox_Auto_LowSlots
+            checkbox:SetChecked(true)
+            checkbox:Fire("OnClick")
+            local threshold = env.DCI_Config_LowSlotsThreshold
+            threshold:SetText("3")
+            threshold:Fire("OnTextChanged", true)
+            assert.equals(3, env.DCI_DB.LowSlotsThreshold)
+            env.addon.UpdateDCISettings()
+            assert.equals("3", threshold:GetText())
+            threshold:Fire("OnEditFocusLost")
+            assert.equals(3, env.DCI_DB.LowSlotsThreshold)
+            assert.equals("3", threshold:GetText())
+
+            env.LootFrame:Show()
+            env.fire("LOOT_OPENED", true)
+            env.runTimers()
+            assert.is_false(env.DCIFrame:IsShown())
+
+            env.putItem(0, 2, 11)
+            env.fire("BAG_UPDATE", 0)
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+            assert.equals(1, env.addon.windowContext)
+
+            env.DCIFrame.CloseButton:Fire("OnClick")
+            env.putItem(0, 3, 12)
+            env.fire("BAG_UPDATE", 0)
+            env.runTimers()
+            assert.is_false(env.DCIFrame:IsShown())
+
+            env.fire("LOOT_CLOSED")
+            env.LootFrame:Hide()
+            env.fire("LOOT_OPENED", true)
+            env.LootFrame:Show()
+            env.runTimers()
+            assert.is_true(env.DCIFrame:IsShown())
+            env.fire("LOOT_CLOSED")
+            assert.is_false(env.DCIFrame:IsShown())
+        end)
+    end)
+end
+
+describe("Forever inventory frame callbacks", function()
+    it("follows the combined bag frame even without bag events or callbacks", function()
+        local env = Helpers.loadAddon({ client = Helpers.clients[4],
+            saved = { Auto_Inventory = true, Auto_Loot = false } })
+        env.putItem(0, 1, 10)
+        env.runTimers()
+        env.ContainerFrameCombinedBags:Show()
+        env.DCIInventoryWatcher:Fire("OnUpdate", 0.21)
+        env.runTimers()
+        assert.is_true(env.DCIFrame:IsShown())
+
+        env.DCIFrame.CloseButton:Fire("OnClick")
+        env.DCIInventoryWatcher:Fire("OnUpdate", 0.21)
+        env.runTimers()
+        assert.is_false(env.DCIFrame:IsShown())
+
+        env.ContainerFrameCombinedBags:Hide()
+        env.DCIInventoryWatcher:Fire("OnUpdate", 0.21)
+        env.runTimers()
+        env.ContainerFrameCombinedBags:Show()
+        env.DCIInventoryWatcher:Fire("OnUpdate", 0.21)
+        env.runTimers()
+        assert.is_true(env.DCIFrame:IsShown())
+        env.ContainerFrameCombinedBags:Hide()
+        env.DCIInventoryWatcher:Fire("OnUpdate", 0.21)
+        env.runTimers()
+        assert.is_false(env.DCIFrame:IsShown())
+    end)
+
+    it("opens and closes with the visible bag UI without bag data events", function()
+        local env = Helpers.loadAddon({ client = Helpers.clients[4],
+            saved = { Auto_Inventory = true, Auto_Loot = false } })
+        env.putItem(0, 1, 10)
+        env.openBags[0] = true
+        env.callbacks["ContainerFrame.OpenBag"]()
+        env.runTimers()
+        assert.is_true(env.DCIFrame:IsShown())
+
+        env.openBags[0] = nil
+        env.callbacks["ContainerFrame.CloseBag"]()
+        env.runTimers()
+        assert.is_false(env.DCIFrame:IsShown())
+
+        env.openBags[0] = true
+        local checkbox = env.DCI_Config_Checkbox_Auto_Inventory
+        checkbox:SetChecked(false)
+        checkbox:Fire("OnClick")
+        checkbox:SetChecked(true)
+        checkbox:Fire("OnClick")
+        env.runTimers()
+        assert.is_true(env.DCIFrame:IsShown())
+    end)
+end)
+
 describe("chat window diagnostics", function()
     it("toggles tracing without toggling the window and reports why it hides", function()
         local env = Helpers.loadAddon({ client = Helpers.clients[4] })

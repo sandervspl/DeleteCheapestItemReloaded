@@ -38,6 +38,14 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
 - Configure quality filters, soulbound filtering, confirmation, automatic display,
   combat visibility, and optional auction prices in Settings.
 
+Under **Automatic Display**, two additional options are off by default. **When
+inventory is open** shows the window while any equipped bag is open and closes it
+after the last bag closes. **When looting with at most this many free slots** opens
+the window during looting when the number of general-purpose free bag slots is at
+or below the entered value. Its default value is `0`; for example, `3` opens the
+window at three or fewer free slots. This works independently of the existing
+full-inventory loot option.
+
 **Allow window in combat** is enabled for new characters and when resetting
 settings. Existing saved choices are preserved; if it is currently off, enable it
 under **Window Behavior** to keep the window visible during combat.
