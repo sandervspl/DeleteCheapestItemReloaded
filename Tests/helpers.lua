@@ -111,6 +111,7 @@ function Helpers.loadAddon(options)
             frame.Text = newFrame("FontString")
         elseif template == "DefaultPanelFlatTemplate" then
             assert(env.client.game == "camelot", "Forever's frame template used on another client")
+            frame.Bg = newFrame("Frame", nil, frame)
             frame.NineSlice = newFrame("Frame", nil, frame)
             frame.NineSlice:SetFrameLevel(500)
             frame.TitleContainer = newFrame("Frame", nil, frame)

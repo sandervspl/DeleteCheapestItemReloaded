@@ -164,6 +164,65 @@ for _, client in ipairs(Helpers.clients) do
     end)
 end
 
+describe("Forever window appearance", function()
+    local forever = Helpers.clients[4]
+
+    it("switches between regular and bronze panels, persists the choice, and restores defaults", function()
+        local env = Helpers.loadAddon({ client = forever })
+        env.addItem(10, 50)
+        env.putItem(0, 1, 10)
+        env.SlashCmdList.DCI()
+        local checkbox = env.DCI_Config_Checkbox_HideBronzeTheme
+        assert.is_false(checkbox:GetChecked())
+        assert.is_true(env.DCIFrame.NineSlice:IsShown())
+
+        checkbox:SetChecked(true)
+        checkbox:Fire("OnClick")
+        assert.is_false(env.DCIFrame.NineSlice:IsShown())
+        assert.is_false(env.DCIFrame.Bg:IsShown())
+        assert.is_true(env.DCIFrame.RegularTheme:IsVisible())
+        assert.is_false(env.DCIFrame.RegularTheme.CloseButton:IsShown())
+        assert.is_true(env.DCI_TitleText:GetFrameLevel() > env.DCIFrame.RegularTheme:GetFrameLevel())
+        assert.is_true(env.DCIFrame:IsShown())
+        assert.is_true(env.DCI_TitleInfoButton:IsVisible())
+        assert.is_true(env.DCIFrame.CloseButton:IsVisible())
+        assert.equals("Delete", env.DCI_DeleteButton1.text)
+        env.DCIFrame.CloseButton:Fire("OnClick")
+        env.SlashCmdList.DCI()
+        assert.is_true(env.DCIFrame:IsShown())
+        assert.is_false(env.DCIFrame.NineSlice:IsShown())
+        assert.is_true(env.DCIFrame.RegularTheme:IsVisible())
+
+        local reloaded = Helpers.loadAddon({ client = forever, saved = env.DCI_DB })
+        assert.is_true(reloaded.DCI_Config_Checkbox_HideBronzeTheme:GetChecked())
+        assert.is_false(reloaded.DCIFrame.NineSlice:IsShown())
+        assert.is_true(reloaded.DCIFrame.RegularTheme:IsShown())
+        reloaded.DCI_Config_Checkbox_HideBronzeTheme:SetChecked(false)
+        reloaded.DCI_Config_Checkbox_HideBronzeTheme:Fire("OnClick")
+        assert.is_true(reloaded.DCIFrame.NineSlice:IsShown())
+        assert.is_true(reloaded.DCIFrame.Bg:IsShown())
+        assert.is_false(reloaded.DCIFrame.RegularTheme:IsShown())
+        reloaded.DCI_Config_Checkbox_HideBronzeTheme:SetChecked(true)
+        reloaded.DCI_Config_Checkbox_HideBronzeTheme:Fire("OnClick")
+        reloaded.DCI_Config_Button_ResetDefau:Fire("OnClick")
+        assert.is_false(reloaded.DCI_DB.HideBronzeTheme)
+        assert.is_false(reloaded.DCI_Config_Checkbox_HideBronzeTheme:GetChecked())
+        assert.is_true(reloaded.DCIFrame.NineSlice:IsShown())
+        assert.is_true(reloaded.DCIFrame.Bg:IsShown())
+        assert.is_false(reloaded.DCIFrame.RegularTheme:IsShown())
+    end)
+
+    it("keeps the appearance option exclusive to Forever", function()
+        for i = 1, 3 do
+            local env = Helpers.loadAddon({ client = Helpers.clients[i], saved = { HideBronzeTheme = true } })
+            assert.is_nil(env.DCI_Config_Checkbox_HideBronzeTheme)
+            env.addon.UpdateWindowTheme()
+            env.SlashCmdList.DCI()
+            assert.is_true(env.DCIFrame:IsShown())
+        end
+    end)
+end)
+
 describe("identity and saved settings", function()
     it("uses the loader's addon name and packaged version", function()
         local env = Helpers.loadAddon({ addonName = "RenamedAddon", version = "v7.1.0",

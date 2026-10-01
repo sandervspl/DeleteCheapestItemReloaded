@@ -842,6 +842,27 @@ function DCI.OpenSettings()
     end
 end
 
+function DCI.UpdateWindowTheme()
+    if not isForever or not DCIFrame then return end
+    if DCI_DB.HideBronzeTheme then
+        if not DCIFrame.RegularTheme then
+            -- Use the same panel artwork as the addon's regular client theme.
+            local regularTheme = CreateFrame("Frame", nil, DCIFrame, "BasicFrameTemplate")
+            regularTheme:SetAllPoints(DCIFrame)
+            regularTheme:SetFrameLevel(DCIFrame:GetFrameLevel())
+            regularTheme.CloseButton:Hide()
+            DCIFrame.RegularTheme = regularTheme
+        end
+        DCIFrame.NineSlice:Hide()
+        DCIFrame.Bg:Hide()
+        DCIFrame.RegularTheme:Show()
+    else
+        DCIFrame.NineSlice:Show()
+        DCIFrame.Bg:Show()
+        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
+    end
+end
+
 local function CreateMainFrame()
     -- This is the base used by Forever's native loot panel, including its bronze art.
     local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
@@ -849,6 +870,7 @@ local function CreateMainFrame()
     if isForever then
         -- Unlike BasicFrameTemplate, the flat panel does not include a close button.
         frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
+        DCI.UpdateWindowTheme()
     end
     frame:HookScript("OnShow", function()
         DCI.LastWindowChange = "shown"
@@ -1832,6 +1854,12 @@ function DCI.CreateDCISettings()
     --checkbox for AllowInCombat & debug
     local Checkbox_AllowInCombat = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 3*-27, "AllowInCombat", L["Allow window in combat"])
     local Checkbox_DebugOutput = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 4*-27, "DebugOutput", L["Show Debug Output"], function(self) DCI_DB.DebugOutput = self:GetChecked() and 1 or nil end)
+    if isForever then
+        CreateConfigPanelCheckbox(Section_WindowSettings, 250, 4*-27, "HideBronzeTheme", L["Hide bronze theme and borders"], function(self)
+            DCI_DB.HideBronzeTheme = self:GetChecked()
+            DCI.UpdateWindowTheme()
+        end)
+    end
 
     ---------------------------
 
@@ -2046,6 +2074,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI_DB.AuctionGreyUnderVendor == nil then DCI_DB.AuctionGreyUnderVendor = true end
     if DCI_DB.HideSoulbound == nil then DCI_DB.HideSoulbound = true end
     if DCI_DB.AllowInCombat == nil then DCI_DB.AllowInCombat = true end
+    if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
@@ -2066,6 +2095,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
         DCI.DebugPrint("Automatically disabling this debug output.")
         DCI_DB.DebugOutput = nil
     end
+    DCI.UpdateWindowTheme()
 end
 
 --function to register events based on user settings
