@@ -40,7 +40,7 @@ function Helpers.loadAddon(options)
     local methods = {}
     local newFrame
     for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
-        "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing " ..
+        "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing SetClampedToScreen " ..
         "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus"):gmatch("%S+") do
         methods[name] = function() end
     end

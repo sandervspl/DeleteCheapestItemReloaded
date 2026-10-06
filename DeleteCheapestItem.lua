@@ -893,6 +893,22 @@ local function CreateMainFrame()
     return frame
 end
 
+-- Automatic placement applies only until the player chooses a position.
+local function AnchorWindow(point, relativeTo, relativePoint, x, y)
+    if DCI.WindowDragging or DCI_DB.WindowPosition then return end
+    DCIFrame:ClearAllPoints()
+    DCIFrame:SetPoint(point, relativeTo, relativePoint, x, y)
+end
+
+local function FinishWindowDrag()
+    if not DCI.WindowDragging then return end
+    DCIFrame:StopMovingOrSizing()
+    DCI.WindowDragging = false
+    -- StartMoving detaches the frame from its context; save the screen anchor.
+    local point, _, relativePoint, x, y = DCIFrame:GetPoint(1)
+    DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+end
+
 --function to create and show a frame with cheapest items
 function DCI.CreateDCIFrame()
     -- Create a frame
@@ -913,6 +929,12 @@ function DCI.CreateDCIFrame()
     else
         DCIFrame:SetPoint("LEFT", 10, 0) 
     end
+    if DCI_DB.WindowPosition then
+        local position = DCI_DB.WindowPosition
+        DCIFrame:ClearAllPoints()
+        DCIFrame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y)
+    end
+    DCIFrame:SetClampedToScreen(true)
 
     --secondary tooltip for button hover
     local DCI_SecondTooltip = CreateFrame("GameTooltip", "DCI_SecondTooltip", DCIFrame, "GameTooltipTemplate")
@@ -942,13 +964,13 @@ function DCI.CreateDCIFrame()
         DCI.DebugPrint("Mousedown on drag frame")
         if button == "LeftButton" then
             DCIFrame:StartMoving()
-            DCI.WindowMoved  = true
+            DCI.WindowDragging = true
         end
     end)
 
     DCI_DragFrame:HookScript("OnMouseUp", function(self, button)
         if button == "LeftButton" then
-            DCIFrame:StopMovingOrSizing()
+            FinishWindowDrag()
         end
     end)
 
@@ -1104,6 +1126,7 @@ function DCI.CreateDCIFrame()
 
     --reset clicked item index when window closes
     DCIFrame:HookScript("OnHide", function()
+        FinishWindowDrag()
         if LootFrame and LootFrame.DCI_LootIndexUserClick then
             DCI.DebugPrint("Resetting click index")
             LootFrame.DCI_LootIndexUserClick = nil
@@ -1180,9 +1203,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     if DCI.windowContext == WINDOW_CONTEXT_LOOT then
         --anchor to loot window
         DCI.DebugPrint("Anchoring to loot window")
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("LEFT", LootFrame, "RIGHT", 10, 0)
-        DCI.WindowMoved = false
+        AnchorWindow("LEFT", LootFrame, "RIGHT", 10, 0)
     
         --get items to be looted
         lootItems = DCI.GetSortedLootWindowItems()
@@ -1210,9 +1231,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     elseif DCI.windowContext == WINDOW_CONTEXT_QUESTCOMPLETE or DCI.windowContext == WINDOW_CONTEXT_QUESTACCEPT then
         --anchor to quest window
         DCI.DebugPrint("Anchoring to quest window")
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("TOPLEFT", QuestFrame, "TOPRIGHT", -20, -20)
-        DCI.WindowMoved = false
+        AnchorWindow("TOPLEFT", QuestFrame, "TOPRIGHT", -20, -20)
 
         --set hook to hide with quest frame
         if not QuestFrame.DCIHooked then
@@ -1239,9 +1258,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     elseif DCI.windowContext == WINDOW_CONTEXT_TRADE then
         --anchor to trade window
         DCI.DebugPrint("Anchoring to trade window")
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("TOPLEFT", TradeFrame, "TOPRIGHT", 10, 0)
-        DCI.WindowMoved = false
+        AnchorWindow("TOPLEFT", TradeFrame, "TOPRIGHT", 10, 0)
 
         --set hook to hide with trade frame
         if not TradeFrame.DCIHooked then
@@ -1264,9 +1281,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
         --anchor to mail window
         DCI.DebugPrint("Anchoring to mail window " .. selectedMailFrame:GetName())
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("TOPLEFT", selectedMailFrame, "TOPRIGHT", 10, 0)
-        DCI.WindowMoved = false
+        AnchorWindow("TOPLEFT", selectedMailFrame, "TOPRIGHT", 10, 0)
 
         --set hook to hide with openmail frame
         if not selectedMailFrame.DCIHooked then
@@ -1281,9 +1296,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     elseif DCI.windowContext == WINDOW_CONTEXT_VENDOR then
         --anchor to vendor window
         DCI.DebugPrint("Anchoring to vendor window")
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("TOPLEFT", MerchantFrame, "TOPRIGHT", 10, 0)
-        DCI.WindowMoved = false
+        AnchorWindow("TOPLEFT", MerchantFrame, "TOPRIGHT", 10, 0)
 
         --set hook to hide with vendor frame
         if not MerchantFrame.DCIHooked then
@@ -1298,9 +1311,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     elseif DCI.windowContext == WINDOW_CONTEXT_ROLL then
         --anchor to roll window
         DCI.DebugPrint("Anchoring to roll window")
-        DCIFrame:ClearAllPoints()
-        DCIFrame:SetPoint("BOTTOMLEFT", GroupLootFrame1, "BOTTOMRIGHT", 10, 4)
-        DCI.WindowMoved = false
+        AnchorWindow("BOTTOMLEFT", GroupLootFrame1, "BOTTOMRIGHT", 10, 4)
 
         --set hook to hide with roll frame
         if not GroupLootContainer.DCIHooked then
@@ -1315,10 +1326,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     else
         --anchor to screen
         DCI.DebugPrint("Anchor to screen")
-        if not DCI.WindowMoved then
-            DCIFrame:ClearAllPoints()
-            DCIFrame:SetPoint("LEFT", 15, 188/2)
-        end
+        AnchorWindow("LEFT", UIParent, "LEFT", 15, 188/2)
     end
 
     --calculate number and value of rewards there will be
@@ -2223,7 +2231,7 @@ function DCI.HandleEvent(self, event, ...)
 
         --globals
         DCI.InvErrWaitForLootFrame = false
-        DCI.WindowMoved = false
+        DCI.WindowDragging = false
         DCI.QuestNumRequiredItems = nil
 
         -- Register slash command
