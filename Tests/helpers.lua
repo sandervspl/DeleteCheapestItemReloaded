@@ -27,6 +27,7 @@ function Helpers.loadAddon(options)
     env.timers, env.time = {}, 0
     env.openBags = {}
     env.DCI_DB = options.saved or {}
+    env.EllesmereUI = options.ellesmereUI
     env.SlashCmdList, env.StaticPopupDialogs = {}, {}
     env.NUM_BAG_SLOTS = 4
     env.NUM_TOTAL_EQUIPPED_BAG_SLOTS = env.client.scrollBoxLoot and 5 or 4
@@ -83,6 +84,7 @@ function Helpers.loadAddon(options)
     function methods:GetPoint() return unpack(self.point or { "TOPLEFT", nil, "TOPRIGHT", 6, -16 }) end
     function methods:ClearAllPoints() self.point = nil end
     function methods:GetName() return self.name end
+    function methods:GetObjectType() return self.kind end
     function methods:GetID() return self.id end
     function methods:RegisterEvent(event) self.events[event] = true end
     function methods:UnregisterEvent(event) self.events[event] = nil end
@@ -101,7 +103,7 @@ function Helpers.loadAddon(options)
     function methods:SetupMenu(fn) self.menu = fn end
 
     newFrame = function(kind, name, parent, template)
-        local frame = setmetatable({ name = name, parent = parent, children = {}, regions = {}, scripts = {},
+        local frame = setmetatable({ kind = kind, name = name, parent = parent, children = {}, regions = {}, scripts = {},
             events = {}, shown = true, enabled = true }, { __index = methods })
         if name then env[name] = frame end
         if parent then table.insert(parent.children, frame) end
