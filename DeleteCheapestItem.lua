@@ -11,6 +11,62 @@ DCI_DB = DCI_DB or {}
 local _, _, _, interfaceVersion = GetBuildInfo()
 local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
 
+-- EUI owns installed skins until reload, including when its toggle is turned off.
+-- Keep the facade for windows created after its login callback.
+local ellesmereSkin
+local mainWidgetsReady, settingsWidgetsReady
+local function SkinWidget(kind, frame)
+    local primitive = ellesmereSkin and ellesmereSkin[kind]
+    if frame and type(primitive) == "function" then primitive(frame) end
+end
+
+local function SkinFonts(frame)
+    for _, region in ipairs({frame:GetRegions()}) do
+        if region:GetObjectType() == "FontString" then SkinWidget("Font", region) end
+    end
+    for _, child in ipairs({frame:GetChildren()}) do
+        if child:GetObjectType() ~= "GameTooltip" then SkinFonts(child) end
+    end
+end
+
+local function SkinMainWindow()
+    if not ellesmereSkin or not mainWidgetsReady then return end
+    if type(ellesmereSkin.Shell) == "function" then
+        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
+        SkinWidget("Shell", DCIFrame)
+    end
+    SkinWidget("CloseButton", DCIFrame.CloseButton)
+    SkinWidget("Inset", DCI_BottomSection_Inset)
+    SkinWidget("ScrollBar", DCI_ScrollParent.ScrollBar)
+    for i = 1, DCI.MAX_ITEM_FRAMES do
+        SkinWidget("Button", _G["DCI_DeleteButton" .. i])
+        SkinWidget("StateButtonLabel", _G["DCI_DeleteButton" .. i])
+    end
+    -- Item textures, quality colors, money strings and selection glow stay semantic.
+    SkinFonts(DCIFrame)
+end
+
+local function SkinSettingsWidgets(frame)
+    local kinds = {
+        [DCI.FRAME_PANEL] = "Panel", [DCI.FRAME_CHECKBOX] = "Checkbox",
+        [DCI.FRAME_DROPDOWN] = "Dropdown", [DCI.FRAME_EDITBOX] = "EditBox",
+    }
+    for _, child in ipairs({frame:GetChildren()}) do
+        local kind = kinds[child.DCI_FrameType]
+        if not kind and child:GetObjectType() == "Button" then kind = "Button" end
+        if kind then SkinWidget(kind, child) end
+        if kind == "Button" then SkinWidget("StateButtonLabel", child) end
+        if not kind or kind == "Panel" then SkinSettingsWidgets(child) end
+    end
+end
+
+local function SkinSettings()
+    if not ellesmereSkin or not settingsWidgetsReady then return end
+    SkinWidget("Panel", DCI_ConfigPanel)
+    SkinSettingsWidgets(DCI_ConfigPanel)
+    SkinFonts(DCI_ConfigPanel)
+end
+
 --constants & magic numbers
 DCI.ADDON_TITLE = "DeleteCheapestItem Reloaded"
 DCI.ADDON_VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version")
@@ -844,6 +900,7 @@ end
 
 function DCI.UpdateWindowTheme()
     if not isForever or not DCIFrame then return end
+    if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
     if DCI_DB.HideBronzeTheme then
         if not DCIFrame.RegularTheme then
             -- Use the same panel artwork as the addon's regular client theme.
@@ -1132,6 +1189,8 @@ function DCI.CreateDCIFrame()
             LootFrame.DCI_LootIndexUserClick = nil
         end
     end)
+    mainWidgetsReady = true
+    SkinMainWindow()
 end
 
 --function to update and display main window
@@ -2022,6 +2081,8 @@ function DCI.CreateDCISettings()
     end
     ConfigFrame:HookScript("OnShow", function(self) UpdateAuctionFrameState() end)
     Checkbox_UseAuctionPrices:HookScript("OnClick", function(self) UpdateAuctionFrameState() end)
+    settingsWidgetsReady = true
+    SkinSettings()
 end
 
 --function to update settings panel
@@ -2518,6 +2579,22 @@ function DCI.HandleEvent(self, event, ...)
 end
 
 --create frame & load events
+if EllesmereUI and type(EllesmereUI.RegisterSkin) == "function" then
+    EllesmereUI.RegisterSkin(addonName, function(S)
+        if type(S) ~= "table" then return end
+        ellesmereSkin = S
+        SkinMainWindow()
+        SkinSettings()
+        -- Font is a one-shot primitive in v9.4; refresh it for live font changes.
+        if type(S.OnLooksChanged) == "function" then
+            S.OnLooksChanged(function()
+                if mainWidgetsReady then SkinFonts(DCIFrame) end
+                if settingsWidgetsReady then SkinFonts(DCI_ConfigPanel) end
+            end)
+        end
+    end)
+end
+
 local DCIFrame = CreateMainFrame()
 DCI.HideWindow("startup")
 DCIFrame:RegisterEvent("ADDON_LOADED")
