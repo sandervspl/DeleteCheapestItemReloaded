@@ -2233,8 +2233,10 @@ function DCI.RegisterFrameEvents()
 
     if DCI_DB.Auto_QuestAccept then
         DCIFrame:RegisterEvent("QUEST_DETAIL")
+        DCIFrame:RegisterEvent("UI_INFO_MESSAGE")
     else
         DCIFrame:UnregisterEvent("QUEST_DETAIL")
+        DCIFrame:UnregisterEvent("UI_INFO_MESSAGE")
     end
 
     if DCI_DB.Auto_QuestComplete then
@@ -2361,11 +2363,24 @@ function DCI.HandleEvent(self, event, ...)
         DCI.UpdateDCIFrame()
     end
 
+    -- Quest failures include the quest name and can arrive through the info channel.
+    local questInventoryFull = DCI_DB.Auto_QuestAccept
+        and (event == "UI_ERROR_MESSAGE" or event == "UI_INFO_MESSAGE")
+        and GetGameMessageInfo and GetGameMessageInfo(arg1) == "ERR_QUEST_FAILED_BAG_FULL_S"
+
     --react to full inv error
-    if event == "UI_ERROR_MESSAGE" and arg2 == ERR_INV_FULL then
+    if (event == "UI_ERROR_MESSAGE" and arg2 == ERR_INV_FULL) or questInventoryFull then
         DCI.DebugPrint("Inventory error")
+        -- Failed acceptance leaves the quest details open; no new QUEST_DETAIL is required.
+        -- Check before refreshing an existing window so it also gains the quest context.
+        if DCI_DB.Auto_QuestAccept and QuestFrame and QuestFrame:IsShown()
+            and QuestFrameDetailPanel and QuestFrameDetailPanel:IsShown() then
+            DCI.DebugPrint("Inventory full while accepting quest - show window")
+            DCI.QuestGaveError = true
+            DCI.UpdateDCIFrame()
+
         --if dci frame is open
-        if DCIFrame and DCIFrame:IsShown() then
+        elseif DCIFrame and DCIFrame:IsShown() then
             DCI.DebugPrint("Updating window since its already shown")
             DCI.UpdateDCIFrame(false)
 
