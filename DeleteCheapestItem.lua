@@ -88,8 +88,10 @@ local inventoryWindowDismissed
 local lootWindowDismissed
 
 local function IsLootFrameOpen()
-    -- Forever's closing animation can leave the frame shown after LOOT_CLOSED.
-    return LootFrame and LootFrame:IsShown() and DCI.LootOpen ~= false
+    -- Replacement loot UIs may keep Blizzard's frame hidden throughout a session.
+    -- Retain the frame fallback until the first event, but never after LOOT_CLOSED.
+    if DCI.LootOpen ~= nil then return DCI.LootOpen end
+    return LootFrame and LootFrame:IsShown()
 end
 
 local function IsInventoryOpen()
@@ -980,9 +982,6 @@ function DCI.CreateDCIFrame()
     DCIFrame:ClearAllPoints()
     if LootFrame and LootFrame:IsShown() then
         DCIFrame:SetPoint("LEFT", LootFrame, "RIGHT", 10, 0) 
-    elseif LootFrame and LootFrame.numLootItems then
-        --LootFrame is hidden, but has been used and we can anchor to it
-        DCIFrame:SetPoint("LEFT", LootFrame, "LEFT", 0, 0)
     else
         DCIFrame:SetPoint("LEFT", 10, 0) 
     end
@@ -1262,7 +1261,11 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     if DCI.windowContext == WINDOW_CONTEXT_LOOT then
         --anchor to loot window
         DCI.DebugPrint("Anchoring to loot window")
-        AnchorWindow("LEFT", LootFrame, "RIGHT", 10, 0)
+        if LootFrame and LootFrame:IsShown() then
+            AnchorWindow("LEFT", LootFrame, "RIGHT", 10, 0)
+        else
+            AnchorWindow("LEFT", UIParent, "LEFT", 15, 188/2)
+        end
     
         --get items to be looted
         lootItems = DCI.GetSortedLootWindowItems()
