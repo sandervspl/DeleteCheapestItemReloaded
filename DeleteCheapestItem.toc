@@ -9,7 +9,7 @@
 ## X-Curse-Project-ID: 1710300
 ## X-License: All Rights Reserved
 ## Category-enUS: Bags & Inventory
-## OptionalDeps: Auctionator, AuctionLite, Auc-Advanced, AuctionMaster, TradeSkillMaster, EllesmereUI
+## OptionalDeps: Auctionator, AuctionLite, Auc-Advanced, AuctionMaster, TradeSkillMaster, auxForever, EllesmereUI
 ## SavedVariablesPerCharacter: DCI_DB
 
 Localization.lua

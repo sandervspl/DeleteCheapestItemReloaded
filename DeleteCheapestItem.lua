@@ -358,6 +358,8 @@ function DCI.UseAuctionPrices(forceEnabled)
             DCI_AuctionSource = "AuctionMaster"
         elseif (TSM_API and TSM_API.GetCustomPriceValue) then
             DCI_AuctionSource = "TSM"
+        elseif (AuxForeverAPI and type(AuxForeverAPI.GetLatestPrice) == "function") then
+            DCI_AuctionSource = "auxForever"
         else
             --if no source API was found return false
             DCI.DebugPrint("No auction API was found during global check", DCI_DB.UseAuctionPrices and DCI.DEBUG_OUTPUT_WARNING or DCI.DEBUG_OUTPUT_INFO)
@@ -440,6 +442,9 @@ function DCI.GetAuctionPriceByItemID(itemID, itemLink)
             local itemString = TSM_API.ToItemString(itemLink);
             finalAuctionPrice = TSM_API.GetCustomPriceValue("Dbminbuyout", itemString);
 
+        elseif (AuxForeverAPI and type(AuxForeverAPI.GetLatestPrice) == "function") then
+            finalAuctionPrice = AuxForeverAPI.GetLatestPrice(itemLink or itemID)
+
         else
             --no auction API found
             DCI.DebugPrint("Auction setting is on but no auction API was found during lookup for " .. itemLink, DCI.DEBUG_OUTPUT_WARNING)
@@ -453,6 +458,15 @@ function DCI.GetAuctionPriceByItemID(itemID, itemLink)
     end
 
     return finalAuctionPrice
+end
+
+-- aux prices random suffixes separately and already caches its history lookups.
+-- Keep other providers on the existing item-ID cache.
+function DCI.GetAuctionPriceForItem(itemID, itemLink)
+    if DCI_AuctionSource == "auxForever" then
+        return DCI.GetAuctionPriceByItemID(itemID, itemLink)
+    end
+    return DCI.ItemInfo[itemID].auctionPricePer
 end
 
 --function to get the items from the open quest reward window
@@ -498,7 +512,7 @@ function DCI.GetQuestRewardWindowItems()
     
         questWindowItems[i].isQuestItem = false
         questWindowItems[i].name = DCI.ItemInfo[itemID].name or questWindowItems[i].name or RETRIEVING_ITEM_INFO
-        questWindowItems[i].link = DCI.ItemInfo[itemID].link or questWindowItems[i].link or questWindowItems[i].name
+        questWindowItems[i].link = questWindowItems[i].link or DCI.ItemInfo[itemID].link or questWindowItems[i].name
         questWindowItems[i].quality = DCI.ItemInfo[itemID].quality or 1
         questWindowItems[i].quantity = questWindowItems[i].quantity or 1
 
@@ -522,13 +536,13 @@ function DCI.GetQuestRewardWindowItems()
             and (DCI_DB.AuctionPriceHidePoorQuality == false or questWindowItems[i].quality ~= 0) then
 
             -- auction enabled, get auction price info            
-            questWindowItems[i].auctionPricePer = DCI.ItemInfo[itemID].auctionPricePer
+            questWindowItems[i].auctionPricePer = DCI.GetAuctionPriceForItem(itemID, questWindowItems[i].link)
 
             if questWindowItems[i].auctionPricePer then
                 --auction enabled and price found
                 questWindowItems[i].auctionPriceTotal = questWindowItems[i].quantity * questWindowItems[i].auctionPricePer
-                questWindowItems[i].bestPricePer = DCI.ItemInfo[itemID].bestPricePer
-                questWindowItems[i].bestPriceType = DCI.ItemInfo[itemID].bestPriceType
+                questWindowItems[i].bestPricePer = math.max(questWindowItems[i].vendorPricePer, questWindowItems[i].auctionPricePer)
+                questWindowItems[i].bestPriceType = questWindowItems[i].auctionPricePer > questWindowItems[i].vendorPricePer and DCI.PRICE_TYPE_AUCTION or DCI.PRICE_TYPE_VENDOR
             else
                 --auction enabled but no price found
                 questWindowItems[i].auctionPriceTotal = nil
@@ -590,13 +604,13 @@ function DCI.GetSortedLootWindowItems()
                             and (DCI_DB.AuctionPriceHidePoorQuality == false or newLootWindowItem.quality ~= 0) then
 
                             -- auction enabled, get auction price info
-                            newLootWindowItem.auctionPricePer = DCI.ItemInfo[itemID].auctionPricePer
+                            newLootWindowItem.auctionPricePer = DCI.GetAuctionPriceForItem(itemID, lootSlotLink)
                             
                             if newLootWindowItem.auctionPricePer then
                                 --auction enabled and price found
                                 newLootWindowItem.auctionPriceTotal = newLootWindowItem.quantity * newLootWindowItem.auctionPricePer
-                                newLootWindowItem.bestPricePer = DCI.ItemInfo[itemID].bestPricePer
-                                newLootWindowItem.bestPriceType = DCI.ItemInfo[itemID].bestPriceType
+                                newLootWindowItem.bestPricePer = math.max(newLootWindowItem.vendorPricePer, newLootWindowItem.auctionPricePer)
+                                newLootWindowItem.bestPriceType = newLootWindowItem.auctionPricePer > newLootWindowItem.vendorPricePer and DCI.PRICE_TYPE_AUCTION or DCI.PRICE_TYPE_VENDOR
                             else
                                 --auction enabled but no price found
                                 newLootWindowItem.auctionPriceTotal = nil
@@ -713,13 +727,13 @@ function DCI.GetSortedBagItems()
                         and (DCI_DB.AuctionPriceHidePoorQuality == false or newBagItem.quality ~= 0) then
 
                         -- auction enabled, get auction price info
-                        newBagItem.auctionPricePer = DCI.ItemInfo[itemID].auctionPricePer
+                        newBagItem.auctionPricePer = DCI.GetAuctionPriceForItem(itemID, newBagItem.link)
 
                         if newBagItem.auctionPricePer then
                             --auction enabled and price found
                             newBagItem.auctionPriceTotal = newBagItem.quantity * newBagItem.auctionPricePer
-                            newBagItem.bestPricePer = DCI.ItemInfo[itemID].bestPricePer
-                            newBagItem.bestPriceType = DCI.ItemInfo[itemID].bestPriceType
+                            newBagItem.bestPricePer = math.max(newBagItem.vendorPricePer, newBagItem.auctionPricePer)
+                            newBagItem.bestPriceType = newBagItem.auctionPricePer > newBagItem.vendorPricePer and DCI.PRICE_TYPE_AUCTION or DCI.PRICE_TYPE_VENDOR
                         else
                             --auction enabled but no price found
                             newBagItem.auctionPriceTotal = nil
@@ -767,11 +781,12 @@ function DCI.GetSortedBagItems()
     local bagItemsDeduped = {}
     local bagItemsDedupedCount = 0
     for i = 1,#bagItems do
-        if bagItems[i].itemID ~= lastItemID or bagItems[i].quantity ~= lastItemQty then
+        local itemKey = DCI_AuctionSource == "auxForever" and bagItems[i].link or bagItems[i].itemID
+        if itemKey ~= lastItemID or bagItems[i].quantity ~= lastItemQty then
             bagItemsDedupedCount = bagItemsDedupedCount + 1
             bagItemsDeduped[bagItemsDedupedCount] = bagItems[i]
         end
-        lastItemID = bagItems[i].itemID
+        lastItemID = itemKey
         lastItemQty = bagItems[i].quantity
     end
 
