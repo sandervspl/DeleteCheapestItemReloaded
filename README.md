@@ -33,6 +33,10 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
 
 - `/dci` toggles the window.
 - Click the information button for Settings.
+- **Show full-stack counts and values** (off by default) adds current/max stack
+  counts on item icons and a gray hypothetical full-stack value beside each
+  displayed vendor or auction value. The window widens while enabled. Sorting,
+  loot comparisons, selling, and deletion still use the actual stack.
 - Click an item icon to ignore it; use **Reset Ignored Items** to clear the list.
 - Delete a displayed stack or sell it while a merchant is open.
 - Configure quality filters, soulbound filtering, confirmation, automatic display,
