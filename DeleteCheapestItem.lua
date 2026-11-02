@@ -141,12 +141,14 @@ DCI.ItemInfo = setmetatable({}, {
             __index = function(t, property)
                 if itemID == nil then
                     DCI.DebugPrint("itemID is nil in metatable function", DCI.DEBUG_OUTPUT_WARNING)
-                elseif property == "name" or property == "link" or property == "quality" or property == "icon" or property == "vendorPricePer" then
+                elseif property == "name" or property == "link" or property == "quality" or property == "icon" or property == "vendorPricePer" or property == "maxStackSize" then
                     -- Item data can be unavailable until GET_ITEM_INFO_RECEIVED.
                     DCI.DebugPrint(string.format("Item Info Lookup: C_Item.GetItemInfo(%s)", itemID))
                     local info = {}
                     local itemLevel, minLevel, itemType, subType, stackSize, equipLoc
                     info.name, info.link, info.quality, itemLevel, minLevel, itemType, subType, stackSize, equipLoc, info.icon, info.vendorPricePer = C_Item.GetItemInfo(itemID)
+                    info.maxStackSize = stackSize
+                    rawset(t, "maxStackSize", stackSize)
                     rawset(t, "name", info['name'])
                     rawset(t, "link", info['link'])
                     rawset(t, "quality", info['quality'])
@@ -335,6 +337,17 @@ function DCI.GetMoneyStringTruncated(coppers, truncateCoppersAfter, truncateSilv
     end
 
     return GetMoneyString(truncatedCoppers)
+end
+
+-- Presentation only: comparisons and destructive actions still use actual quantities.
+function DCI.GetStackValueString(total, quantity, maxStackSize)
+    local current = DCI.GetMoneyStringTruncated(total)
+    if not DCI_DB.ShowFullStackValues or not maxStackSize or maxStackSize <= 1 or quantity <= 0 then
+        return current
+    end
+    local full = math.floor(total / quantity * maxStackSize)
+    local maximum = GetMoneyString(full)
+    return current .. " |cff888888/ " .. maximum .. "|r"
 end
 
 --function to check if auction prices are enabled and available
@@ -1155,6 +1168,7 @@ function DCI.CreateDCIFrame()
         ItemInfo_Bg:SetTexture(136796)
         ItemInfo_Bg:SetVertexColor(0.5, 0.5, 0.5, 1)
         ItemInfo_Bg:SetPoint("TOPLEFT", ItemIcon, "TOPRIGHT", 5, 0)
+        ItemParent.DCI_InfoBackground = ItemInfo_Bg
         ItemInfo_Bg:SetSize(150, 38)
         ItemInfo_Bg:SetTexCoord(0.08, 0.92, 0.18, 0.82)
 
@@ -1226,6 +1240,11 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
         --reset scroll
         DCI_ScrollParent:SetVerticalScroll(0);
     end
+
+    local extraWidth = DCI_DB.ShowFullStackValues and 180 or 0
+    DCIFrame:SetWidth(290 + extraWidth)
+    DCI_ScrollParent:SetWidth(261 + extraWidth)
+    DCI_ScrollChild:SetWidth(261 + extraWidth)
 
     --quit if player is in combat based on global AllowInCombat
     if DCI_DB.AllowInCombat == false and UnitAffectingCombat("player") then
@@ -1464,9 +1483,22 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             --show item
             ItemParent:Show()
 
+            -- Reserve room for the optional full-stack value without crowding the labels.
+            ItemParent:SetWidth(258 + extraWidth)
+            ItemParent.DCI_InfoBackground:SetWidth(150 + extraWidth)
+            local maxStackSize = DCI.ItemInfo[bagItem.itemID].maxStackSize
+            local function valueString(total)
+                return DCI.GetStackValueString(total, bagItem.quantity, maxStackSize)
+            end
+
             --item icon texture + quantity
             ItemIconTexture:SetTexture(C_Item.GetItemIconByID(bagItem.itemID))
-            ItemIconCountText:SetText(bagItem.quantity)
+            local count = tostring(bagItem.quantity)
+            if DCI_DB.ShowFullStackValues and maxStackSize and maxStackSize > 1 then
+                count = count .. "|cff888888/" .. maxStackSize .. "|r"
+            end
+            ItemIconCountText:SetFontObject(DCI_DB.ShowFullStackValues and "GameFontNormalSmall" or "NumberFontNormal")
+            ItemIconCountText:SetText(count)
 
             --grey out poor quality
             if bagItem.quality == 0 then
@@ -1503,13 +1535,13 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             if DCI.UseAuctionPrices() and DCI_DB.ShowBothPrices then
                 --top line vendor price
                 ItemInfoTopLeft:SetText(L["Vendor"])
-                ItemInfoTopRight:SetText(DCI.GetMoneyStringTruncated(bagItem.vendorPriceTotal))
+                ItemInfoTopRight:SetText(valueString(bagItem.vendorPriceTotal))
                 ItemInfoTopRight:Show()
 
                 --bottom line vendor price
                 ItemInfoBottomLeft:SetText(L["Auction"])
                 if bagItem.auctionPriceTotal and bagItem.auctionPriceTotal > 0 then
-                    ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.auctionPriceTotal))
+                    ItemInfoBottomRight:SetText(valueString(bagItem.auctionPriceTotal))
                     --grey auction price if cheaper than vendor based on global AuctionGreyUnderVendor
                     if DCI_DB.AuctionGreyUnderVendor and bagItem.auctionPriceTotal <= bagItem.vendorPriceTotal then
                         ItemInfoBottomLeft:SetTextColor(0.3,0.3,0.3)
@@ -1539,24 +1571,24 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 if DCI_DB.CompareByPrice == DCI.PRICE_TYPE_VENDOR then
                     --use vendor price
                     ItemInfoBottomLeft:SetText(L["Vendor"])
-                    ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.vendorPriceTotal))
+                    ItemInfoBottomRight:SetText(valueString(bagItem.vendorPriceTotal))
                 elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_AUCTION then
                     --use auction price IF its available
                     if bagItem.auctionPriceTotal then
                         ItemInfoBottomLeft:SetText(L["Auction"])
-                        ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.auctionPriceTotal))
+                        ItemInfoBottomRight:SetText(valueString(bagItem.auctionPriceTotal))
                     else
                         ItemInfoBottomLeft:SetText(L["Vendor"])
-                        ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.vendorPriceTotal))
+                        ItemInfoBottomRight:SetText(valueString(bagItem.vendorPriceTotal))
                     end
                 elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_BEST then
                     --use best price
                     if bagItem.auctionPriceTotal and bagItem.auctionPriceTotal > bagItem.vendorPriceTotal then
                         ItemInfoBottomLeft:SetText(L["Auction"])
-                        ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.auctionPriceTotal))
+                        ItemInfoBottomRight:SetText(valueString(bagItem.auctionPriceTotal))
                     else
                         ItemInfoBottomLeft:SetText(L["Vendor"])
-                        ItemInfoBottomRight:SetText(DCI.GetMoneyStringTruncated(bagItem.vendorPriceTotal))
+                        ItemInfoBottomRight:SetText(valueString(bagItem.vendorPriceTotal))
                     end
                 end
                 --reset bottom color
@@ -1936,6 +1968,8 @@ function DCI.CreateDCISettings()
     local confirmValues = {0, 1, 2, 3, 4, 5, nil}
     local Dropdown_ConfirmMinQuality = CreateConfigPanelDropdown(Section_WindowSettings, 0, 2*-27, "ConfirmMinQuality", L["Confirm delete if quality is at least"], confirmValues, confirmChoices, 120)
 
+    CreateConfigPanelCheckbox(Section_WindowSettings, 250, 3*-27, "ShowFullStackValues", L["Show full-stack counts and values"])
+
     --checkbox for AllowInCombat & debug
     local Checkbox_AllowInCombat = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 3*-27, "AllowInCombat", L["Allow window in combat"])
     local Checkbox_DebugOutput = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 4*-27, "DebugOutput", L["Show Debug Output"], function(self) DCI_DB.DebugOutput = self:GetChecked() and 1 or nil end)
@@ -2164,6 +2198,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
+    if DCI_DB.ShowFullStackValues == nil then DCI_DB.ShowFullStackValues = false end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
     if DCI_DB.ConfirmMinQuality == nil then DCI_DB.ConfirmMinQuality = nil end --default to nil which represents never
     if DCI_DB.Auto_Loot == nil then DCI_DB.Auto_Loot = true end

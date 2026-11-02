@@ -76,6 +76,7 @@ function Helpers.loadAddon(options)
     function methods:SetText(text) self.text = text end
     function methods:GetText() return self.text end
     function methods:SetDefaultText(text) self.text = text end
+    function methods:SetFontObject(font) self.fontObject = font end
     function methods:SetWidth(width) self.width = width end
     function methods:GetWidth() return self.width or 100 end
     function methods:SetSize(width, height) self.width, self.height = width, height end
@@ -167,7 +168,7 @@ function Helpers.loadAddon(options)
         GetItemInfo = function(id)
             local item = env.items[id]
             if not item or item.pending then return nil end
-            return item.name, item.link, item.quality, 1, 1, "Misc", "Junk", 20, "", 134400, item.price
+            return item.name, item.link, item.quality, 1, 1, "Misc", "Junk", item.maxStackSize or 20, "", 134400, item.price
         end,
         GetItemIconByID = function() return 134400 end,
         GetItemQualityColor = function() return 1, 1, 1, "ffffff" end,
