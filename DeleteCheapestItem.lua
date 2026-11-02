@@ -345,10 +345,8 @@ function DCI.GetStackValueString(total, quantity, maxStackSize)
     if not DCI_DB.ShowFullStackValues or not maxStackSize or maxStackSize <= 1 or quantity <= 0 then
         return current
     end
-    -- Plain denomination text lets the whole hypothetical value stay gray, including units.
     local full = math.floor(total / quantity * maxStackSize)
-    local gold, silver, copper = math.floor(full / 10000), math.floor(full / 100) % 100, full % 100
-    local maximum = (gold > 0 and gold .. "g " or "") .. (silver > 0 and silver .. "s " or "") .. copper .. "c"
+    local maximum = GetMoneyString(full)
     return current .. " |cff888888/ " .. maximum .. "|r"
 end
 

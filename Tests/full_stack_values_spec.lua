@@ -14,7 +14,7 @@ for _, client in ipairs(Helpers.clients) do
             env.DCI_Config_Checkbox_ShowFullStackValues:SetChecked(true)
             env.DCI_Config_Checkbox_ShowFullStackValues:Fire("OnClick")
             assert.equals("2|cff888888/20|r", env.DCI_ItemIconCountText1.text)
-            assert.is_truthy(env.DCI_ItemInfo_TextBottomRight1.text:find("/ 2s 0c", 1, true))
+            assert.is_truthy(env.DCI_ItemInfo_TextBottomRight1.text:find("/ 200c", 1, true))
             assert.equals(10, addon.GetSortedBagItems()[1].itemID)
             assert.equals(20, addon.GetSortedBagItems()[1].vendorPriceTotal)
             env.DCI_Config_Checkbox_ShowFullStackValues:SetChecked(false)
@@ -32,8 +32,8 @@ for _, client in ipairs(Helpers.clients) do
             env.DCI_DB.ShowFullStackValues = true
             env.DCI_DB.ShowBothPrices = true
             env.SlashCmdList.DCI()
-            assert.is_truthy(env.DCI_ItemInfo_TextTopRight1.text:find("/ 2s 0c", 1, true))
-            assert.is_truthy(env.DCI_ItemInfo_TextBottomRight1.text:find("/ 19s 0c", 1, true))
+            assert.is_truthy(env.DCI_ItemInfo_TextTopRight1.text:find("/ 200c", 1, true))
+            assert.is_truthy(env.DCI_ItemInfo_TextBottomRight1.text:find("/ 1900c", 1, true))
         end)
         it("leaves nonstackable and unknown-capacity values alone", function()
             local env = Helpers.loadAddon({ client = client })
