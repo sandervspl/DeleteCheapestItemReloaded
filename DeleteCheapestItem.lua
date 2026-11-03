@@ -2484,7 +2484,7 @@ function DCI.HandleEvent(self, event, ...)
                     DCI.DebugPrint("Setting hook on loot item click")
                     _G['LootButton'..i]:HookScript("OnClick", function(button)
                         LootFrame.DCI_LootIndexUserClick = button.slot
-                        DCI.DebugPrint("LootButton click, force index but dont update window " .. LootFrame.DCI_LootIndexUserClick)
+                        DCI.DebugPrint("LootButton click, force index but dont update window " .. tostring(button.slot))
                     end)
                     _G['LootButton'..i].DCIFunctionAltered = true
                 end

@@ -127,6 +127,12 @@ for _, client in ipairs(Helpers.clients) do
                 env.LootButton1:Fire("OnClick")
             end
             assert.equals(7, env.LootFrame.DCI_LootIndexUserClick)
+
+            if not client.scrollBoxLoot then
+                env.LootButton1.slot = nil
+                env.LootButton1:Fire("OnClick")
+                assert.is_nil(env.LootFrame.DCI_LootIndexUserClick)
+            end
         end)
 
         it("opens on full inventory errors and respects combat visibility", function()
