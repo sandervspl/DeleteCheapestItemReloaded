@@ -1241,6 +1241,8 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
         DCI_ScrollParent:SetVerticalScroll(0);
     end
 
+    if DCI_DB.HideWindowTitle then DCI_TitleText:Hide() else DCI_TitleText:Show() end
+
     local extraWidth = DCI_DB.ShowFullStackValues and 180 or 0
     DCIFrame:SetWidth(290 + extraWidth)
     DCI_ScrollParent:SetWidth(261 + extraWidth)
@@ -1955,6 +1957,8 @@ function DCI.CreateDCISettings()
     --section for window behavior
     local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 5*27+16, L["Window Behavior"])
 
+    CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
+
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
     
@@ -2198,6 +2202,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
+    if DCI_DB.HideWindowTitle == nil then DCI_DB.HideWindowTitle = false end
     if DCI_DB.ShowFullStackValues == nil then DCI_DB.ShowFullStackValues = false end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
     if DCI_DB.ConfirmMinQuality == nil then DCI_DB.ConfirmMinQuality = nil end --default to nil which represents never
