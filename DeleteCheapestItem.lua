@@ -11,6 +11,19 @@ DCI_DB = DCI_DB or {}
 local _, _, _, interfaceVersion = GetBuildInfo()
 local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
 
+-- A target's identity can become restricted between QUEST_DETAIL and a bag-full error.
+local function GetReadableTargetGUID()
+    local guid = UnitGUID("target")
+    if issecretvalue and issecretvalue(guid) then return nil end
+    return guid
+end
+
+local function IsQuestGiverTarget()
+    local guid = DCI.QuestGiverGUID
+    if issecretvalue and issecretvalue(guid) then return false end
+    return guid ~= nil and guid == GetReadableTargetGUID()
+end
+
 -- EUI owns installed skins until reload, including when its toggle is turned off.
 -- Keep the facade for windows created after its login callback.
 local ellesmereSkin
@@ -2467,7 +2480,7 @@ function DCI.HandleEvent(self, event, ...)
             end
 
         --if we saved current target as quest giver, assume it was from accepting quest
-        elseif DCI_DB.Auto_QuestAccept and DCI.QuestGiverGUID and DCI.QuestGiverGUID == UnitGUID("target") then
+        elseif DCI_DB.Auto_QuestAccept and IsQuestGiverTarget() then
             DCI.DebugPrint("Assuming inv error was from accepting quest, setting flag to wait for quest window")
             DCI.QuestGaveError = true
 
@@ -2552,7 +2565,7 @@ function DCI.HandleEvent(self, event, ...)
                 DCI.UpdateDCIFrame()
             else
                 --otherwise set this as our quest & reset the flag
-                DCI.QuestGiverGUID = UnitGUID("target")
+                DCI.QuestGiverGUID = GetReadableTargetGUID()
                 DCI.QuestID = GetQuestID()
                 DCI.QuestNumBagSlots = DCI.CountFreeBagSlots()
                 DCI.QuestGaveError = false

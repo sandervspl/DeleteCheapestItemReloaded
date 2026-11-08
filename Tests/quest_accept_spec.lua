@@ -69,5 +69,45 @@ for _, client in ipairs(Helpers.clients) do
             assert.is_false(env.DCIFrame:IsShown())
             assert.is_false(env.addon.QuestGaveError)
         end)
+
+        it("keeps the target fallback for readable GUIDs without the secret-value API", function()
+            env.UnitGUID = function() return "quest-giver" end
+            env.fire("QUEST_DETAIL")
+            env.QuestFrame:Hide()
+            env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
+            assert.is_true(env.addon.QuestGaveError)
+        end)
+
+        for _, restrictedAt in ipairs({ "quest detail", "inventory error", "saved GUID" }) do
+            it("skips the target fallback with a secret identity at " .. restrictedAt, function()
+                local secret = setmetatable({}, {
+                    __eq = function() error("attempt to compare a secret GUID") end,
+                })
+                env.issecretvalue = function(value) return rawequal(value, secret) end
+                env.UnitGUID = function()
+                    if restrictedAt == "quest detail" then return secret end
+                    return "quest-giver"
+                end
+                env.fire("QUEST_DETAIL")
+                if restrictedAt == "quest detail" then
+                    assert.is_nil(env.addon.QuestGiverGUID)
+                elseif restrictedAt == "saved GUID" then
+                    env.addon.QuestGiverGUID = secret
+                else
+                    env.UnitGUID = function() return secret end
+                end
+                env.QuestFrame:Hide()
+                env.DCI_DB.Auto_Loot = false
+                env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
+                assert.is_false(env.addon.QuestGaveError)
+                assert.is_false(env.DCIFrame:IsShown())
+
+                -- Explicit quest context still works while target identity is restricted.
+                env.QuestFrame:Show()
+                env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
+                assert.is_true(env.DCIFrame:IsShown())
+                assert.is_true(env.addon.QuestGaveError)
+            end)
+        end
     end)
 end
