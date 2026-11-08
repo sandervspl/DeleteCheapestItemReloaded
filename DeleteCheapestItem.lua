@@ -2116,7 +2116,9 @@ function DCI.CreateDCISettings()
         if disableAuctionSettings then
             --disable auction settings & labels
             for _, childFrame in ipairs({auctionSettingsDisableFrame:GetChildren()}) do
-                childFrame:Disable()
+                if childFrame.Disable then
+                    childFrame:Disable()
+                end
                 --check dropdown children for text to color
                 if childFrame.DCI_FrameType == DCI.FRAME_DROPDOWN then
                     for _, grandchildFrame in ipairs({childFrame:GetRegions()}) do
@@ -2129,7 +2131,9 @@ function DCI.CreateDCISettings()
         else
             --enable auction settings & labels
             for _, childFrame in ipairs({auctionSettingsDisableFrame:GetChildren()}) do
-                childFrame:Enable()
+                if childFrame.Enable then
+                    childFrame:Enable()
+                end
                 --check dropdown children for text to color
                 if childFrame.DCI_FrameType == DCI.FRAME_DROPDOWN then
                     for _, grandchildFrame in ipairs({childFrame:GetRegions()}) do
