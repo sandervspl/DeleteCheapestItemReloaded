@@ -703,6 +703,9 @@ function DCI.GetSortedBagItems()
     for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS) do
         -- Get the number of slots in the bag
         local numSlots = C_Container.GetContainerNumSlots(bag)
+        local _, bagFamily = C_Container.GetContainerNumFreeSlots(bag)
+        -- Ammo bags cannot make room for ordinary loot.
+        if bagFamily == 1 or bagFamily == 2 then numSlots = 0 end
 
         -- Iterate through all slots in the bag
         for slot = 1, numSlots do
