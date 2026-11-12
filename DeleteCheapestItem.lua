@@ -2029,32 +2029,23 @@ function DCI.CreateDCISettings()
     LowSlotsThreshold.DCI_FrameType = DCI.FRAME_EDITBOX
     LowSlotsThreshold.DCI_UpdateVariable = "LowSlotsThreshold"
     LowSlotsThreshold:HookScript("OnMouseDown", function(self) self:SetFocus() end)
-    local function SaveLowSlotsThreshold(self)
-        local enteredValue = tonumber(self:GetText())
-        local value = math.max(0, math.min(999, math.floor(enteredValue or DCI_DB.LowSlotsThreshold)))
-        DCI_DB.LowSlotsThreshold = value
-        if self:GetText() ~= tostring(value) then self:SetText(tostring(value)) end
-        self:SetCursorPosition(0)
-    end
-    local function FinishLowSlotsThreshold(self)
-        -- Read the displayed value before clearing focus or closing the panel.
-        -- Escape must not replace an edit with the last saved value first.
-        SaveLowSlotsThreshold(self)
+    LowSlotsThreshold:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    LowSlotsThreshold:SetScript("OnEscapePressed", function(self)
+        self:SetText(tostring(DCI_DB.LowSlotsThreshold))
         self:ClearFocus()
-    end
-    LowSlotsThreshold:SetScript("OnEnterPressed", FinishLowSlotsThreshold)
-    LowSlotsThreshold:SetScript("OnEscapePressed", FinishLowSlotsThreshold)
-    LowSlotsThreshold:HookScript("OnHide", FinishLowSlotsThreshold)
-    LowSlotsThreshold:SetScript("OnTextChanged", function(self)
+    end)
+    LowSlotsThreshold:SetScript("OnTextChanged", function(self, userInput)
+        if not userInput then return end
         local value = tonumber(self:GetText())
         if value then DCI_DB.LowSlotsThreshold = math.max(0, math.min(999, value)) end
     end)
     -- Preserve InputBoxTemplate's handler that clears the selection highlight.
-    LowSlotsThreshold:HookScript("OnEditFocusLost", SaveLowSlotsThreshold)
-    -- Flush unfinished input before WoW writes SavedVariables during /reload or logout.
-    LowSlotsThreshold:RegisterEvent("PLAYER_LOGOUT")
-    LowSlotsThreshold:SetScript("OnEvent", function(self, event)
-        if event == "PLAYER_LOGOUT" then SaveLowSlotsThreshold(self) end
+    LowSlotsThreshold:HookScript("OnEditFocusLost", function(self)
+        local enteredValue = tonumber(self:GetText())
+        local value = math.max(0, math.min(999, enteredValue or 0))
+        DCI_DB.LowSlotsThreshold = value
+        if enteredValue ~= value then self:SetText(tostring(value)) end
+        self:SetCursorPosition(0)
     end)
 
     ---------------------------
