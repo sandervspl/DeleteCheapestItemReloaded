@@ -2,6 +2,18 @@ local Helpers = dofile("Tests/helpers.lua")
 
 for _, client in ipairs(Helpers.clients) do
     describe(client.name .. " threshold persistence", function()
+        it("saves an unfinished edit at logout before the reload snapshot is written", function()
+            local env = Helpers.loadAddon({ client = client, saved = { LowSlotsThreshold = 2 } })
+            local threshold = env.DCI_Config_LowSlotsThreshold
+            threshold:SetText("27")
+            -- Reload can happen without a focus-loss, hide or text-change callback.
+            if threshold.events.PLAYER_LOGOUT then threshold:Fire("OnEvent", "PLAYER_LOGOUT") end
+            local saved = { LowSlotsThreshold = env.DCI_DB.LowSlotsThreshold }
+            local reloaded = Helpers.loadAddon({ client = client, saved = saved })
+            assert.equals(27, reloaded.DCI_DB.LowSlotsThreshold)
+            assert.equals("27", reloaded.DCI_Config_LowSlotsThreshold:GetText())
+        end)
+
         for _, event in ipairs({ "OnEnterPressed", "OnEscapePressed", "OnHide", "OnEditFocusLost" }) do
             it("retains the displayed threshold after " .. event .. " and reload", function()
                 local env = Helpers.loadAddon({ client = client,

@@ -2046,6 +2046,11 @@ function DCI.CreateDCISettings()
     end)
     -- Preserve InputBoxTemplate's handler that clears the selection highlight.
     LowSlotsThreshold:HookScript("OnEditFocusLost", SaveLowSlotsThreshold)
+    -- Flush unfinished input before WoW writes SavedVariables during /reload or logout.
+    LowSlotsThreshold:RegisterEvent("PLAYER_LOGOUT")
+    LowSlotsThreshold:SetScript("OnEvent", function(self, event)
+        if event == "PLAYER_LOGOUT" then SaveLowSlotsThreshold(self) end
+    end)
 
     ---------------------------
 
