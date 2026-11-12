@@ -2022,6 +2022,10 @@ function DCI.CreateDCISettings()
     LowSlotsThreshold:SetMaxLetters(3)
     LowSlotsThreshold:SetAutoFocus(false)
     LowSlotsThreshold:SetText(tostring(DCI_DB.LowSlotsThreshold))
+    LowSlotsThreshold:SetCursorPosition(0)
+    -- Reset horizontal scrolling once the field has a visible layout. Blizzard's
+    -- auction quantity input needs the same fix when setting text before showing.
+    LowSlotsThreshold:HookScript("OnShow", function(self) self:SetCursorPosition(0) end)
     LowSlotsThreshold.DCI_FrameType = DCI.FRAME_EDITBOX
     LowSlotsThreshold.DCI_UpdateVariable = "LowSlotsThreshold"
     LowSlotsThreshold:HookScript("OnMouseDown", function(self) self:SetFocus() end)
@@ -2030,6 +2034,7 @@ function DCI.CreateDCISettings()
         local value = math.max(0, math.min(999, math.floor(enteredValue or DCI_DB.LowSlotsThreshold)))
         DCI_DB.LowSlotsThreshold = value
         if self:GetText() ~= tostring(value) then self:SetText(tostring(value)) end
+        self:SetCursorPosition(0)
     end
     local function FinishLowSlotsThreshold(self)
         -- Read the displayed value before clearing focus or closing the panel.
@@ -2186,6 +2191,7 @@ function DCI.UpdateDCISettings()
                         grandchildFrame:DCI_SetDefaultText()
                     elseif grandchildFrame.DCI_FrameType == DCI.FRAME_EDITBOX then
                         grandchildFrame:SetText(tostring(DCI_DB[grandchildFrame.DCI_UpdateVariable]))
+                        grandchildFrame:SetCursorPosition(0)
                     end
                 end
             end
