@@ -2030,14 +2030,13 @@ function DCI.CreateDCISettings()
         self:SetText(tostring(DCI_DB.LowSlotsThreshold))
         self:ClearFocus()
     end)
-    LowSlotsThreshold:SetScript("OnTextChanged", function(self, userInput)
-        if not userInput then return end
+    LowSlotsThreshold:SetScript("OnTextChanged", function(self)
         local value = tonumber(self:GetText())
         if value then DCI_DB.LowSlotsThreshold = math.max(0, math.min(999, value)) end
     end)
     LowSlotsThreshold:SetScript("OnEditFocusLost", function(self)
         local enteredValue = tonumber(self:GetText())
-        local value = math.max(0, math.min(999, enteredValue or 0))
+        local value = math.max(0, math.min(999, enteredValue or DCI_DB.LowSlotsThreshold))
         DCI_DB.LowSlotsThreshold = value
         if enteredValue ~= value then self:SetText(tostring(value)) end
     end)
