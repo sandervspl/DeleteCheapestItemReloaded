@@ -1,6 +1,6 @@
 # LibDataBroker support design
 
-Status: Interview in progress. Implementation awaits confirmation of shared understanding.
+Status: Design complete. Implementation awaits confirmation of shared understanding.
 
 ## Request
 
@@ -13,12 +13,28 @@ A user requested LDB support because they like buttons and panels.
 - Share the icon, click behavior, and tooltip between the panel entry and minimap button.
 - Support all four existing clients: Era, Anniversary, Mists, and Forever.
 - Bundle LibDataBroker, LibDBIcon, and their required libraries. Users supply a broker display if they want a panel entry.
+- Plain left-click toggles the main addon window.
+- Right-click opens settings.
+- Ctrl+left-click opens the ignored-items window instead of toggling the main window.
+- Neither entry point performs item deletion.
+- The minimap button starts visible and can be dragged. Its position and hidden state persist across logins.
+- The tooltip shows the addon name and instructions for all three click actions.
 
-## Open decisions
+## Implementation and verification
 
-- Determine click actions and tooltip content.
-- Determine the minimap button's default visibility and position persistence.
-- Agree on verification and acceptance criteria before implementation.
+- Reuse the existing main-window, settings, and ignored-items entry points.
+- Use the existing addon icon for both entry points.
+- Include bundled libraries in the TOC, release packaging, and local installation helper; update source-install instructions.
+- Verify registration, each click action, tooltip instructions, minimap visibility and saved position, and compatibility with the supported clients using the repository's Lua test harness where possible.
+- Include a repeatable in-game check for Titan Panel and minimap integration. Automated mocks alone cannot establish that the real display works.
+- Check changed user-visible text for encoding corruption before delivery.
+
+## Confirmation
+
+The user accepted the launcher, minimap, client, dependency, click, visibility,
+and tooltip decisions. Ctrl+left-click is the proposed binding for their added
+request to open the ignored-items window. Confirm the complete design before
+changing addon code.
 
 ## References
 
