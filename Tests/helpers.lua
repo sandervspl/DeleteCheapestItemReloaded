@@ -24,6 +24,7 @@ function Helpers.loadAddon(options)
     env.client = options.client or Helpers.clients[1]
     env.bags, env.items, env.loot, env.looted, env.deleted, env.sold = {}, {}, {}, {}, {}, {}
     env.callbacks, env.hooks, env.messages = {}, {}, {}
+    env.frames = {}
     env.timers, env.time = {}, 0
     env.openBags = {}
     env.DCI_DB = options.saved or {}
@@ -42,7 +43,9 @@ function Helpers.loadAddon(options)
     local newFrame
     for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
         "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving SetClampedToScreen " ..
-        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition EnableMouse"):gmatch("%S+") do
+        "AddDoubleLine AddLine ClearLines SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition EnableMouse " ..
+        "SetFixedFrameStrata SetFixedFrameLevel RegisterForClicks RegisterForDrag SetHighlightTexture LockHighlight UnlockHighlight " ..
+        "SetOrder SetDuration SetFromAlpha SetToAlpha SetStartDelay SetToFinalAlpha Stop Play"):gmatch("%S+") do
         methods[name] = function() end
     end
     function methods:SetScript(event, fn) self.scripts[event] = fn end
@@ -81,6 +84,13 @@ function Helpers.loadAddon(options)
     function methods:SetWordWrap(value) self.wordWrap = value end
     function methods:SetWidth(width) self:SetSize(width, self.height or 20) end
     function methods:GetWidth() return self.width or 100 end
+    function methods:GetHeight() return self.height or 100 end
+    function methods:GetParent() return self.parent end
+    function methods:GetVertexColor() return 1, 1, 1 end
+    function methods:GetCenter() return 100, 100 end
+    function methods:GetEffectiveScale() return 1 end
+    function methods:CreateAnimationGroup() return newFrame("AnimationGroup", nil, self) end
+    function methods:CreateAnimation() return newFrame("Animation", nil, self) end
     function methods:SetSize(width, height)
         if self.sizing then
             width, height = math.max(width, self.minWidth), math.max(height, self.minHeight)
@@ -119,6 +129,7 @@ function Helpers.loadAddon(options)
     newFrame = function(kind, name, parent, template)
         local frame = setmetatable({ kind = kind, name = name, parent = parent, children = {}, regions = {}, scripts = {},
             events = {}, shown = true, enabled = true }, { __index = methods })
+        table.insert(env.frames, frame)
         if name then env[name] = frame end
         if parent then table.insert(parent.children, frame) end
         if template == "UIPanelScrollFrameTemplate" then
@@ -143,6 +154,11 @@ function Helpers.loadAddon(options)
         return frame
     end
     env.CreateFrame = newFrame
+    env.Minimap = newFrame("Frame", "Minimap")
+    env.securecallfunction = function(fn, ...) return fn(...) end
+    env.strmatch = string.match
+    env.IsControlKeyDown = function() return env.controlDown or false end
+    env.GetCursorPosition = function() return 150, 125 end
     env.UIParent = newFrame("Frame", "UIParent")
     env.GameTooltip = newFrame("GameTooltip", "GameTooltip")
     for _, name in ipairs({ "LootFrame", "MerchantFrame", "QuestFrame", "QuestFrameRewardPanel",

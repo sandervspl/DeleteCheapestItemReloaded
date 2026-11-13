@@ -22,8 +22,9 @@ part of this release's support matrix.
 
 Extract the release ZIP into the selected client's `Interface/AddOns` directory.
 The resulting manifest must be `Interface/AddOns/DeleteCheapestItem/DeleteCheapestItem.toc`.
-For a source checkout, copy the two runtime Lua files, the TOC, and `Media/icon.tga`
-into that same folder, preserving the `Media` subfolder.
+For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Broker.lua`,
+the TOC, the entire `Libs` folder, and `Media/icon.tga` into that same folder,
+preserving the `Libs` and `Media` subfolders.
 Rebuild the icon from its source with `python scripts/build-icon.py`.
 
 The installed addon is named **DeleteCheapestItem Reloaded**. Its folder remains
@@ -33,6 +34,12 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
 
 - `/dci` toggles the window.
 - Click the information button for Settings.
+- Use the minimap button or enable the **DeleteCheapestItem Reloaded** launcher
+  in a broker display such as Titan Panel. Left-click toggles the window,
+  right-click opens Settings, and Ctrl+left-click opens Ignored Items.
+  Drag the minimap button to reposition it; hide it with **Hide minimap button**
+  under **Window Behavior** in Settings. Position and visibility are saved per character.
+  The minimap button works without a panel addon; required libraries are bundled.
 - Drag the bottom-right grip to resize the loot or ignored-items window. Each
   window remembers its size per character; resetting settings restores both sizes.
 - **Show full-stack counts and values** (off by default) adds current/max stack

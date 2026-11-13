@@ -53,7 +53,11 @@ try {
     & $scriptPath -WowRoot $fixtureRoot
     foreach ($name in $expectedClients) {
         $destination = Join-Path $fixtureRoot "$name\Interface\AddOns\DeleteCheapestItem"
-        foreach ($file in @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua", "Media\icon.tga")) {
+        $runtimeFiles = @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua", "Broker.lua", "Media\icon.tga")
+        $runtimeFiles += Get-ChildItem -LiteralPath (Join-Path $projectRoot "Libs") -File -Recurse | ForEach-Object {
+            $_.FullName.Substring($projectRoot.Length + 1)
+        }
+        foreach ($file in $runtimeFiles) {
             $expected = (Get-FileHash -LiteralPath (Join-Path $projectRoot $file)).Hash
             $actual = (Get-FileHash -LiteralPath (Join-Path $destination $file)).Hash
             Assert-True ($actual -eq $expected) "Deployed $file differs in $name"

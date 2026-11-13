@@ -1,6 +1,6 @@
 # LibDataBroker support design
 
-Status: Design complete. Implementation awaits confirmation of shared understanding.
+Status: Confirmed by the user and implemented. In-game verification remains manual.
 
 ## Request
 
@@ -31,10 +31,34 @@ A user requested LDB support because they like buttons and panels.
 
 ## Confirmation
 
-The user accepted the launcher, minimap, client, dependency, click, visibility,
-and tooltip decisions. Ctrl+left-click is the proposed binding for their added
-request to open the ignored-items window. Confirm the complete design before
-changing addon code.
+The user confirmed the complete design, including Ctrl+left-click for ignored
+items, and requested implementation and a PR.
+
+## Repeatable verification
+
+Run `busted --lua=lua5.1` and `./Tests/copy_to_wow_spec.ps1` from the repository root.
+The broker specs load the shipped TOC and real bundled libraries for all four
+client environments. They exercise panel and minimap click dispatch, tooltip
+content, drag persistence, hidden state before and after login, and rebinding
+saved settings after a reset.
+
+For each supported client, perform the following in-game checks:
+
+1. Install the addon with its `Libs` folder and log in without a broker display.
+   Confirm the minimap button appears and its tooltip explains all three actions.
+2. With eligible bag items and an ignored item, left-click to open and close the
+   main window, right-click for Settings, and Ctrl+left-click for Ignored Items.
+   Confirm these clicks do not delete or sell anything.
+3. Drag the button, reload, and confirm its position persists. Hide it in Settings,
+   reload again, and confirm it stays hidden. Show it again from `/dci` Settings.
+4. Enable a Titan Panel version compatible with the client and enable the launcher
+   in its plugin controls. Repeat all three click actions and check the tooltip.
+   Hide the minimap button and confirm the panel launcher still works.
+5. Reset Default Settings. Confirm the minimap button is shown, the hide checkbox
+   is cleared, and newly dragged positions survive a reload.
+
+Record the client build, broker display version, results, and screenshots for
+these manual checks. They have not been performed by the implementation agent.
 
 ## References
 
@@ -53,3 +77,6 @@ Consulted `Blizzard_APIDocumentationGenerated/ContainerDocumentation.lua` on eac
 branch, `Blizzard_Minimap/Classic/Minimap.lua` on the first three, and
 `Blizzard_Minimap/Blizzard_Minimap.toc` plus
 `Blizzard_Minimap/Camelot/Minimap.lua` on Forever.
+Implementation also consulted `Blizzard_SharedXML/BindingUtil.lua` on all four
+branches and `Blizzard_APIDocumentationGenerated/InputDocumentation.lua` for
+cursor input and Forever's generated `IsControlKeyDown` definition.
