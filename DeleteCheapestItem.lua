@@ -76,6 +76,7 @@ end
 local function SkinSettings()
     if not ellesmereSkin or not settingsWidgetsReady then return end
     SkinWidget("Panel", DCI_ConfigPanel)
+    SkinWidget("ScrollBar", DCI_ConfigScrollFrame.ScrollBar)
     SkinSettingsWidgets(DCI_ConfigPanel)
     SkinFonts(DCI_ConfigPanel)
 end
@@ -1946,12 +1947,24 @@ function DCI.CreateDCISettings()
 
     ---------------------------
 
-    -- Create a configuration panel
-    local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", UIParent)
-    ConfigFrame.name = DCI.ADDON_TITLE
-    local settingsCategory = Settings.RegisterCanvasLayoutCategory(ConfigFrame, DCI.ADDON_TITLE)
+    -- Keep the settings canvas viewport separate from its full-height content.
+    local ConfigCanvas = CreateFrame("Frame", "DCI_ConfigCanvas", UIParent)
+    ConfigCanvas.name = DCI.ADDON_TITLE
+    local settingsCategory = Settings.RegisterCanvasLayoutCategory(ConfigCanvas, DCI.ADDON_TITLE)
     DCI.settingsCategory = settingsCategory
     Settings.RegisterAddOnCategory(settingsCategory)
+
+    local scrollFrame = CreateFrame("ScrollFrame", "DCI_ConfigScrollFrame", ConfigCanvas, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 0, 0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+    scrollFrame.ScrollBar.scrollStep = 27
+
+    local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
+    ConfigFrame:SetSize(635, 660)
+    scrollFrame:SetScrollChild(ConfigFrame)
+    scrollFrame:HookScript("OnSizeChanged", function(self, width)
+        ConfigFrame:SetWidth(math.max(635, width))
+    end)
 
     -- Title text
     local title = ConfigFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
