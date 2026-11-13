@@ -33,6 +33,8 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
 
 - `/dci` toggles the window.
 - Click the information button for Settings.
+- Drag the bottom-right grip to resize the loot or ignored-items window. Each
+  window remembers its size per character; resetting settings restores both sizes.
 - **Show full-stack counts and values** (off by default) adds current/max stack
   counts on item icons and a gray hypothetical full-stack value beside each
   displayed vendor or auction value. The window widens while enabled. Sorting,

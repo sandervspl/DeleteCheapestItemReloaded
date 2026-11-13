@@ -74,6 +74,49 @@ local function CreateWindowFrame(name)
     return frame
 end
 
+local function AddResizeGrip(frame, savedKey, minWidth, minHeight, defaultHeight, layout, getExtraWidth)
+    local function ExtraWidth() return getExtraWidth and getExtraWidth() or 0 end
+    frame:SetResizable(true)
+    function frame:DCI_ApplySize()
+        local extra = ExtraWidth()
+        self:SetResizeBounds(minWidth + extra, minHeight)
+        if not self.DCI_Resizing then
+            local size = DCI_DB[savedKey] or {}
+            self:SetSize(math.max(minWidth, size.width or minWidth) + extra,
+                math.max(minHeight, size.height or defaultHeight))
+        end
+        layout(self, self:GetSize())
+    end
+    local function FinishResize()
+        if not frame.DCI_Resizing then return end
+        frame:StopMovingOrSizing()
+        frame.DCI_Resizing = false
+        local width, height = frame:GetSize()
+        DCI_DB[savedKey] = { width = math.max(minWidth, width - ExtraWidth()), height = height }
+        if frame == DCIFrame then
+            local point, _, relativePoint, x, y = frame:GetPoint(1)
+            DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+        end
+    end
+    local grip = CreateFrame("Button", nil, frame, "PanelResizeButtonTemplate")
+    frame.ResizeGrip = grip
+    grip.target = frame
+    grip:SetPoint("BOTTOMRIGHT", -2, 2)
+    -- Forever's border lives on a high frame level; keep the grip clickable above it.
+    grip:SetFrameLevel(math.max(frame:GetFrameLevel() + 10,
+        frame.NineSlice and frame.NineSlice:GetFrameLevel() + 1 or 0))
+    grip:SetScript("OnMouseDown", function(_, button)
+        if button ~= "LeftButton" then return end
+        frame.DCI_Resizing = true
+        frame:StartSizing("BOTTOMRIGHT", true)
+    end)
+    grip:SetScript("OnMouseUp", FinishResize)
+    grip:HookScript("OnHide", FinishResize)
+    frame:HookScript("OnHide", FinishResize)
+    frame:HookScript("OnSizeChanged", layout)
+    frame:DCI_ApplySize()
+end
+
 local function SkinWindowShell(frame)
     if type(ellesmereSkin.Shell) == "function" then
         if frame.RegularTheme then frame.RegularTheme:Hide() end
@@ -500,6 +543,15 @@ function DCI.IsItemIgnored(itemID)
     return false  -- ItemID not found in the list
 end
 
+local function LayoutIgnoredItems(frame, width)
+    frame.content:SetWidth(width - 36)
+    for _, row in ipairs(frame.rows) do
+        row:SetWidth(width - 36)
+        row.background:SetWidth(width - 160)
+        row.label:SetWidth(width - 174)
+    end
+end
+
 -- Keep the saved order stable while displaying one row per item, even for legacy duplicates.
 function DCI.RefreshIgnoredItems()
     local frame = DCI.IgnoredItemsFrame
@@ -557,7 +609,8 @@ function DCI.RefreshIgnoredItems()
     end
     for i = count + 1, #frame.rows do frame.rows[i]:Hide() end
     frame.empty:SetText(count == 0 and L["No ignored items."] or "")
-    frame.content:SetSize(274, math.max(1, count * 41 + 2))
+    frame.content:SetSize(frame:GetWidth() - 36, math.max(1, count * 41 + 2))
+    LayoutIgnoredItems(frame, frame:GetWidth())
 end
 
 function DCI.ShowIgnoredItems()
@@ -607,10 +660,12 @@ function DCI.ShowIgnoredItems()
         reset:SetText(L["Reset Ignored Items"])
         reset:SetScript("OnClick", DCI.ResetIgnoredItem)
         frame:SetScript("OnShow", function()
+            frame:DCI_ApplySize()
             frame.scroll:SetVerticalScroll(0)
             DCI.RefreshIgnoredItems()
         end)
         frame:SetScript("OnHide", function() GameTooltip:Hide() end)
+        AddResizeGrip(frame, "IgnoredWindowSize", 310, 160, 286, LayoutIgnoredItems)
         SkinIgnoredItems()
     end
     frame:Show()
@@ -1156,7 +1211,7 @@ end
 
 -- A saved position can be overridden while following the loot window.
 local function AnchorWindow(point, relativeTo, relativePoint, x, y)
-    if DCI.WindowDragging then return end
+    if DCI.WindowDragging or DCIFrame.DCI_Resizing then return end
     if DCI_DB.WindowPosition and not (DCI_DB.FollowLootWindow and relativeTo == LootFrame) then
         local position = DCI_DB.WindowPosition
         point, relativeTo, relativePoint = position.point, UIParent, position.relativePoint
@@ -1173,6 +1228,17 @@ local function FinishWindowDrag()
     -- StartMoving detaches the frame from its context; save the screen anchor.
     local point, _, relativePoint, x, y = DCIFrame:GetPoint(1)
     DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+end
+
+local function LayoutMainWindow(frame, width, height)
+    DCI_ScrollParent:SetSize(width - 29, height - 85)
+    DCI_ScrollChild:SetWidth(width - 29)
+    for i = 1, DCI.MAX_ITEM_FRAMES do
+        local row = _G["DCI_Item" .. i]
+        row:SetWidth(width - 32)
+        row.DCI_InfoBackground:SetWidth(width - 140)
+        _G["DCI_ItemInfo_TextTopLeft" .. i]:SetWidth(width - 154)
+    end
 end
 
 --function to create and show a frame with cheapest items
@@ -1306,7 +1372,7 @@ function DCI.CreateDCIFrame()
     --bottom section inset
     local DCI_BottomSection_Inset = CreateFrame("ScrollFrame", "DCI_BottomSection_Inset", DCIFrame, "InsetFrameTemplate3")
     DCI_BottomSection_Inset:SetPoint("TOPLEFT", DCIFrame, "TOPLEFT", 3+1, -60)
-    DCI_BottomSection_Inset:SetPoint("BOTTOMRIGHT", DCIFrame, "BOTTOMRIGHT", -5-1, 4)
+    DCI_BottomSection_Inset:SetPoint("BOTTOMRIGHT", DCIFrame, "BOTTOMRIGHT", -5-1, 20)
 
     --scroll parent
     local DCI_ScrollParent = CreateFrame("ScrollFrame", "DCI_ScrollParent", DCI_BottomSection_Inset, "UIPanelScrollFrameTemplate")
@@ -1366,6 +1432,8 @@ function DCI.CreateDCIFrame()
         --display item name/values
         local ItemInfo_TextTopLeft = ItemParent:CreateFontString("DCI_ItemInfo_TextTopLeft"..itemNum, "OVERLAY", "GameFontNormal")
         ItemInfo_TextTopLeft:SetPoint("TOPLEFT", ItemInfo_Bg, "TOPLEFT", 7, -5)
+        ItemInfo_TextTopLeft:SetJustifyH("LEFT")
+        ItemInfo_TextTopLeft:SetWordWrap(false)
         local ItemInfo_TextTopRight = ItemParent:CreateFontString("DCI_ItemInfo_TextTopRight"..itemNum, "OVERLAY", "GameFontNormal")
         ItemInfo_TextTopRight:SetPoint("TOPRIGHT", ItemInfo_Bg, "TOPRIGHT", -7, -5)
         ItemInfo_TextTopRight:SetText(" ") --to ensure relative positioning works
@@ -1396,6 +1464,8 @@ function DCI.CreateDCIFrame()
             LootFrame.DCI_LootIndexUserClick = nil
         end
     end)
+    AddResizeGrip(DCIFrame, "WindowSize", 290, 200, 240, LayoutMainWindow,
+        function() return DCI_DB.ShowFullStackValues and 180 or 0 end)
     mainWidgetsReady = true
     SkinMainWindow()
 end
@@ -1422,10 +1492,8 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
     if DCI_DB.HideWindowTitle then DCI_TitleText:Hide() else DCI_TitleText:Show() end
 
-    local extraWidth = DCI_DB.ShowFullStackValues and 180 or 0
-    DCIFrame:SetWidth(290 + extraWidth)
-    DCI_ScrollParent:SetWidth(261 + extraWidth)
-    DCI_ScrollChild:SetWidth(261 + extraWidth)
+    DCIFrame:DCI_ApplySize()
+    local extraWidth = DCIFrame:GetWidth() - 290
 
     --quit if player is in combat based on global AllowInCombat
     if DCI_DB.AllowInCombat == false and UnitAffectingCombat("player") then
@@ -1639,6 +1707,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     --get sorted bag items array
     DCI.DebugPrint("Updating displayed items")
     local bagItems = DCI.GetSortedBagItems()
+    DCI_ScrollChild:SetSize(DCIFrame:GetWidth() - 29, math.max(1, math.min(#bagItems, DCI.MAX_ITEM_FRAMES) * 41 + 8))
 
     --loop through bag item frames
     local highlightCount = 0
@@ -1737,15 +1806,9 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                     ItemInfoBottomRight:SetTextColor(0.3,0.3,0.3)
                 end
             else
-                --shorten long item names
-                local shortName = bagItem.name or ""
-                if string.len(shortName) > 19 then
-                    shortName = string.sub(bagItem.name, 1, 17) .. "..."
-                end
-
                 --top line item name
                 local r,g,b,hex = C_Item.GetItemQualityColor(bagItem.quality)
-                ItemInfoTopLeft:SetText("|c" .. hex .. shortName .. "|r")
+                ItemInfoTopLeft:SetText("|c" .. hex .. (bagItem.name or "") .. "|r")
                 ItemInfoTopRight:Hide()
 
                 --bottom line price
@@ -2428,6 +2491,8 @@ function DCI.InitializeSavedVariables(resetDefaults)
         DCI_DB.DebugOutput = nil
     end
     DCI.UpdateWindowTheme()
+    if DCIFrame.DCI_ApplySize then DCIFrame:DCI_ApplySize() end
+    if DCI.IgnoredItemsFrame then DCI.IgnoredItemsFrame:DCI_ApplySize() end
 end
 
 --function to register events based on user settings
