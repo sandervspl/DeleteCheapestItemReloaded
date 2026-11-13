@@ -323,6 +323,8 @@ function DCI.HandleSlashCommand(message)
         DCI.ToggleDCIFrame()
     elseif command == "status" then
         DCI.TraceWindow("status; last change=" .. (DCI.LastWindowChange or "none"), true)
+    elseif command == "ignored" then
+        DCI.ShowIgnoredItems()
     elseif command == "debug" or command == "debug on" or command == "debug off" then
         if command == "debug" then DCI.WindowDebug = not DCI.WindowDebug
         else DCI.WindowDebug = command == "debug on" end
@@ -330,7 +332,7 @@ function DCI.HandleSlashCommand(message)
         DCI.DebugPrint("Window debug " .. (DCI.WindowDebug and "ON. Reproduce the problem; /dci debug off stops tracing." or "OFF."), DCI.DEBUG_OUTPUT_FORCED)
         if DCI.WindowDebug then DCI.TraceWindow("debug enabled", true) end
     else
-        DCI.DebugPrint("Commands: /dci, /dci debug [on|off], /dci status", DCI.DEBUG_OUTPUT_FORCED)
+        DCI.DebugPrint("Commands: /dci, /dci ignored, /dci debug [on|off], /dci status", DCI.DEBUG_OUTPUT_FORCED)
     end
 end
 
@@ -403,12 +405,22 @@ end
 --function to save an item to the ignore list
 function DCI.SaveIgnoredItem(itemID)
     if not DCI_DB.IgnoredItems then DCI_DB.IgnoredItems = {} end
+    if DCI.IsItemIgnored(itemID) then return end
 
-    local IgnoredItems_copy = DCI_DB.IgnoredItems
-    table.insert(IgnoredItems_copy, itemID)
-    DCI_DB.IgnoredItems = IgnoredItems_copy
+    table.insert(DCI_DB.IgnoredItems, itemID)
 
-    DCI.DebugPrint(L["Ignoring item: "]..DCI.ItemInfo[itemID].name, DCI.DEBUG_OUTPUT_FORCED)
+    DCI.DebugPrint(L["Ignoring item: "] .. (DCI.ItemInfo[itemID].name or tostring(itemID)), DCI.DEBUG_OUTPUT_FORCED)
+    DCI.RefreshIgnoredItems()
+end
+
+function DCI.RemoveIgnoredItem(itemID)
+    local items = DCI_DB.IgnoredItems or {}
+    -- Older saved lists can contain duplicates; removing an item must unignore it fully.
+    for i = #items, 1, -1 do
+        if items[i] == itemID then table.remove(items, i) end
+    end
+    DCI.RefreshIgnoredItems()
+    DCI.UpdateDCIFrame(false)
 end
 
 --function to clear the ignore list
@@ -416,6 +428,7 @@ function DCI.ResetIgnoredItem()
     DCI.DebugPrint(L["Resetting ignored items list."], DCI.DEBUG_OUTPUT_FORCED)
 
     DCI_DB.IgnoredItems = {}
+    DCI.RefreshIgnoredItems()
     DCI.UpdateDCIFrame(false)
 end
 
@@ -434,6 +447,100 @@ function DCI.IsItemIgnored(itemID)
     end
 
     return false  -- ItemID not found in the list
+end
+
+-- Keep the saved order stable while displaying one row per item, even for legacy duplicates.
+function DCI.RefreshIgnoredItems()
+    local frame = DCI.IgnoredItemsFrame
+    if not frame or not frame:IsShown() then return end
+    local seen, count = {}, 0
+    for _, itemID in ipairs(DCI_DB.IgnoredItems or {}) do
+        if not seen[itemID] then
+            seen[itemID] = true
+            count = count + 1
+            local row = frame.rows[count]
+            if not row then
+                row = CreateFrame("Frame", nil, frame.content)
+                row:EnableMouse(true)
+                row:SetSize(390, 36)
+                row:SetPoint("TOPLEFT", 0, -(count - 1) * 38)
+                row.icon = row:CreateTexture(nil, "ARTWORK")
+                row.icon:SetSize(28, 28)
+                row.icon:SetPoint("LEFT", 0, 0)
+                row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+                row.label:SetPoint("LEFT", 36, 0)
+                row.label:SetSize(240, 30)
+                row.remove = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+                row.remove:SetSize(100, 26)
+                row.remove:SetPoint("RIGHT", 0, 0)
+                row.remove:SetText(L["Remove"])
+                row.remove:SetScript("OnClick", function() DCI.RemoveIgnoredItem(row.itemID) end)
+                row:SetScript("OnEnter", function(self)
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    GameTooltip:SetItemByID(self.itemID)
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                SkinWidget("Button", row.remove)
+                SkinWidget("StateButtonLabel", row.remove)
+                SkinFonts(row)
+                frame.rows[count] = row
+            end
+            row.itemID = itemID
+            local info = DCI.ItemInfo[itemID]
+            row.icon:SetTexture(info.icon or 134400)
+            row.label:SetText(info.link or info.name or string.format(L["Item ID: %s"], tostring(itemID)))
+            row:Show()
+        end
+    end
+    for i = count + 1, #frame.rows do frame.rows[i]:Hide() end
+    frame.empty:SetText(count == 0 and L["No ignored items."] or "")
+    frame.content:SetSize(390, math.max(1, count * 38))
+end
+
+function DCI.ShowIgnoredItems()
+    local frame = DCI.IgnoredItemsFrame
+    if not frame then
+        frame = CreateFrame("Frame", "DCI_IgnoredItemsFrame", UIParent, "BasicFrameTemplate")
+        frame:Hide()
+        DCI.IgnoredItemsFrame = frame
+        frame:SetSize(450, 420)
+        frame:SetPoint("CENTER")
+        frame:SetFrameStrata("DIALOG")
+        frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
+        if UISpecialFrames then table.insert(UISpecialFrames, "DCI_IgnoredItemsFrame") end
+        local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        title:SetPoint("TOP", 0, -6)
+        title:SetText(L["Ignored Items"])
+        frame.empty = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        frame.empty:SetPoint("TOP", 0, -56)
+        frame.scroll = CreateFrame("ScrollFrame", "DCI_IgnoredItemsScroll", frame, "UIPanelScrollFrameTemplate")
+        frame.scroll:SetPoint("TOPLEFT", 16, -36)
+        frame.scroll:SetPoint("BOTTOMRIGHT", -44, 56)
+        frame.scroll.ScrollBar.scrollStep = 38
+        frame.content = CreateFrame("Frame", nil, frame.scroll)
+        frame.content:SetSize(390, 1)
+        frame.scroll:SetScrollChild(frame.content)
+        frame.rows = {}
+        local reset = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        reset:SetSize(200, 28)
+        reset:SetPoint("BOTTOM", 0, 16)
+        reset:SetText(L["Reset Ignored Items"])
+        reset:SetScript("OnClick", DCI.ResetIgnoredItem)
+        frame:SetScript("OnShow", function()
+            frame.scroll:SetVerticalScroll(0)
+            DCI.RefreshIgnoredItems()
+        end)
+        frame:SetScript("OnHide", function() GameTooltip:Hide() end)
+        SkinWidget("Panel", frame)
+        SkinWidget("CloseButton", frame.CloseButton)
+        SkinWidget("ScrollBar", frame.scroll.ScrollBar)
+        SkinWidget("Button", reset)
+        SkinWidget("StateButtonLabel", reset)
+        SkinFonts(frame)
+    end
+    frame:Show()
+    DCI.RefreshIgnoredItems()
 end
 
 --function to get auction price by itemID
@@ -1977,8 +2084,8 @@ function DCI.CreateDCISettings()
     versionText:SetText(DCI.ADDON_VERSION)
     versionText:SetTextColor(0.3, 0.3, 0.3, 0.3)
 
-    --buttons to reset ignore list, show test window, reset settings
-    local Button_ResetIgnore = CreateConfigPanelButton(ConfigFrame, 16, -42, L["Reset Ignored Items"], DCI.ResetIgnoredItem)
+    --buttons to manage ignored items, show test window, reset settings
+    local Button_IgnoredItems = CreateConfigPanelButton(ConfigFrame, 16, -42, L["Ignored Items"], DCI.ShowIgnoredItems)
     local Button_TestWindow = CreateConfigPanelButton(ConfigFrame, 16+170, -42, L["Open Test Window"], DCI.ToggleDCIFrame)
     local Button_DefaultSettings = CreateConfigPanelButton(ConfigFrame, 16+170*2, -42, L["Reset Default Settings"], function()
         DCI.InitializeSavedVariables(true)
@@ -2437,6 +2544,7 @@ function DCI.HandleEvent(self, event, ...)
 
     if event == "GET_ITEM_INFO_RECEIVED" and arg2 then
         rawset(DCI.ItemInfo, arg1, nil)
+        if DCI.IsItemIgnored(arg1) then DCI.RefreshIgnoredItems() end
         if DCIFrame:IsShown() then DCI.UpdateDCIFrame(false) end
     end
 

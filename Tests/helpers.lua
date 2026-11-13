@@ -28,7 +28,7 @@ function Helpers.loadAddon(options)
     env.openBags = {}
     env.DCI_DB = options.saved or {}
     env.EllesmereUI = options.ellesmereUI
-    env.SlashCmdList, env.StaticPopupDialogs = {}, {}
+    env.SlashCmdList, env.StaticPopupDialogs, env.UISpecialFrames = {}, {}, {}
     env.NUM_BAG_SLOTS = 4
     env.NUM_TOTAL_EQUIPPED_BAG_SLOTS = env.client.scrollBoxLoot and 5 or 4
     env.YES, env.NO, env.DELETE, env.NEVER, env.ERROR_CAPS = "Yes", "No", "Delete", "Never", "Error"
@@ -42,7 +42,7 @@ function Helpers.loadAddon(options)
     local newFrame
     for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
         "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing SetClampedToScreen " ..
-        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition"):gmatch("%S+") do
+        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition EnableMouse"):gmatch("%S+") do
         methods[name] = function() end
     end
     function methods:SetScript(event, fn) self.scripts[event] = fn end

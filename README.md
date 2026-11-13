@@ -37,7 +37,9 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
   counts on item icons and a gray hypothetical full-stack value beside each
   displayed vendor or auction value. The window widens while enabled. Sorting,
   loot comparisons, selling, and deletion still use the actual stack.
-- Click an item icon to ignore it; use **Reset Ignored Items** to clear the list.
+- Click an item icon to ignore it. Open **Ignored Items** in Settings or use
+  `/dci ignored` to view the list, remove individual items, or reset the whole list.
+  Items are saved per character; uncached items show their ID until their name loads.
 - Delete a displayed stack or sell it while a merchant is open.
 - Configure quality filters, soulbound filtering, confirmation, automatic display,
   combat visibility, and optional auction prices in Settings.
