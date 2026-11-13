@@ -1349,6 +1349,7 @@ function DCI.CreateDCIFrame()
 
         GameTooltip:AddLine(L["Tips"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Click on an item's icon to add it to the ignore list"], 0.6, 0.6, 0.6)
+        GameTooltip:AddLine("* " .. L["Type /dci ignored to view and manage ignored items"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Type /dci to open the window at any time"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Feedback and suggestions are welcome! :)"], 0.6, 0.6, 0.6)
 
