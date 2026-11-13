@@ -77,6 +77,8 @@ function Helpers.loadAddon(options)
     function methods:GetText() return self.text end
     function methods:SetDefaultText(text) self.text = text end
     function methods:SetFontObject(font) self.fontObject = font end
+    function methods:SetJustifyH(value) self.justifyH = value end
+    function methods:SetWordWrap(value) self.wordWrap = value end
     function methods:SetWidth(width) self.width = width end
     function methods:GetWidth() return self.width or 100 end
     function methods:SetSize(width, height) self.width, self.height = width, height end

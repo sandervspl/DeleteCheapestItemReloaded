@@ -42,13 +42,64 @@ local function SkinFonts(frame)
     end
 end
 
+local function UpdateFrameTheme(frame)
+    if not isForever or not frame then return end
+    if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
+    if DCI_DB.HideBronzeTheme then
+        if not frame.RegularTheme then
+            local regularTheme = CreateFrame("Frame", nil, frame, "BasicFrameTemplate")
+            regularTheme:SetAllPoints(frame)
+            regularTheme:SetFrameLevel(frame:GetFrameLevel())
+            regularTheme.CloseButton:Hide()
+            frame.RegularTheme = regularTheme
+        end
+        frame.NineSlice:Hide()
+        frame.Bg:Hide()
+        frame.RegularTheme:Show()
+    else
+        frame.NineSlice:Show()
+        frame.Bg:Show()
+        if frame.RegularTheme then frame.RegularTheme:Hide() end
+    end
+end
+
+local function CreateWindowFrame(name)
+    -- Forever's native loot panel uses this flat base, including its bronze art.
+    local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
+    local frame = CreateFrame("Frame", name, UIParent, template)
+    if isForever then
+        frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
+        UpdateFrameTheme(frame)
+    end
+    return frame
+end
+
+local function SkinWindowShell(frame)
+    if type(ellesmereSkin.Shell) == "function" then
+        if frame.RegularTheme then frame.RegularTheme:Hide() end
+        SkinWidget("Shell", frame)
+    end
+    SkinWidget("CloseButton", frame.CloseButton)
+end
+
+local function SkinIgnoredItems()
+    local frame = DCI.IgnoredItemsFrame
+    if not ellesmereSkin or not frame then return end
+    SkinWindowShell(frame)
+    SkinWidget("Inset", frame.inset)
+    SkinWidget("ScrollBar", frame.scroll.ScrollBar)
+    SkinWidget("Button", frame.reset)
+    SkinWidget("StateButtonLabel", frame.reset)
+    for _, row in ipairs(frame.rows) do
+        SkinWidget("Button", row.remove)
+        SkinWidget("StateButtonLabel", row.remove)
+    end
+    SkinFonts(frame)
+end
+
 local function SkinMainWindow()
     if not ellesmereSkin or not mainWidgetsReady then return end
-    if type(ellesmereSkin.Shell) == "function" then
-        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
-        SkinWidget("Shell", DCIFrame)
-    end
-    SkinWidget("CloseButton", DCIFrame.CloseButton)
+    SkinWindowShell(DCIFrame)
     SkinWidget("Inset", DCI_BottomSection_Inset)
     SkinWidget("ScrollBar", DCI_ScrollParent.ScrollBar)
     for i = 1, DCI.MAX_ITEM_FRAMES do
@@ -462,17 +513,25 @@ function DCI.RefreshIgnoredItems()
             if not row then
                 row = CreateFrame("Frame", nil, frame.content)
                 row:EnableMouse(true)
-                row:SetSize(390, 36)
-                row:SetPoint("TOPLEFT", 0, -(count - 1) * 38)
+                row:SetSize(274, 38)
+                row:SetPoint("TOPLEFT", 0, -2 - (count - 1) * 41)
                 row.icon = row:CreateTexture(nil, "ARTWORK")
-                row.icon:SetSize(28, 28)
+                row.icon:SetSize(38, 38)
                 row.icon:SetPoint("LEFT", 0, 0)
+                row.background = row:CreateTexture(nil, "BACKGROUND")
+                row.background:SetTexture(136796)
+                row.background:SetVertexColor(0.5, 0.5, 0.5, 1)
+                row.background:SetTexCoord(0.08, 0.92, 0.18, 0.82)
+                row.background:SetPoint("LEFT", row.icon, "RIGHT", 5, 0)
+                row.background:SetSize(150, 38)
                 row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-                row.label:SetPoint("LEFT", 36, 0)
-                row.label:SetSize(240, 30)
+                row.label:SetPoint("LEFT", row.background, "LEFT", 7, 0)
+                row.label:SetSize(136, 30)
+                row.label:SetJustifyH("LEFT")
+                row.label:SetWordWrap(false)
                 row.remove = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-                row.remove:SetSize(100, 26)
-                row.remove:SetPoint("RIGHT", 0, 0)
+                row.remove:SetSize(76, 32)
+                row.remove:SetPoint("LEFT", row.background, "RIGHT", 3, 0)
                 row.remove:SetText(L["Remove"])
                 row.remove:SetScript("OnClick", function() DCI.RemoveIgnoredItem(row.itemID) end)
                 row:SetScript("OnEnter", function(self)
@@ -489,42 +548,62 @@ function DCI.RefreshIgnoredItems()
             row.itemID = itemID
             local info = DCI.ItemInfo[itemID]
             row.icon:SetTexture(info.icon or 134400)
-            row.label:SetText(info.link or info.name or string.format(L["Item ID: %s"], tostring(itemID)))
+            row.label:SetText(info.name or string.format(L["Item ID: %s"], tostring(itemID)))
+            local r, g, b = 1, 1, 1
+            if info.quality then r, g, b = C_Item.GetItemQualityColor(info.quality) end
+            row.label:SetTextColor(r, g, b)
             row:Show()
         end
     end
     for i = count + 1, #frame.rows do frame.rows[i]:Hide() end
     frame.empty:SetText(count == 0 and L["No ignored items."] or "")
-    frame.content:SetSize(390, math.max(1, count * 38))
+    frame.content:SetSize(274, math.max(1, count * 41 + 2))
 end
 
 function DCI.ShowIgnoredItems()
     local frame = DCI.IgnoredItemsFrame
     if not frame then
-        frame = CreateFrame("Frame", "DCI_IgnoredItemsFrame", UIParent, "BasicFrameTemplate")
+        frame = CreateWindowFrame("DCI_IgnoredItemsFrame")
         frame:Hide()
         DCI.IgnoredItemsFrame = frame
-        frame:SetSize(450, 420)
+        frame:SetSize(310, 286)
         frame:SetPoint("CENTER")
+        frame:SetClampedToScreen(true)
         frame:SetFrameStrata("DIALOG")
         frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
         if UISpecialFrames then table.insert(UISpecialFrames, "DCI_IgnoredItemsFrame") end
-        local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        title:SetPoint("TOP", 0, -6)
+        local titleParent = isForever and frame.TitleContainer or frame
+        if isForever then titleParent.TitleText:Hide() end
+        local title = titleParent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        title:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+        title:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -25, -24)
         title:SetText(L["Ignored Items"])
+        local drag = CreateFrame("Frame", nil, titleParent)
+        drag:SetAllPoints(title)
+        drag:EnableMouse(true)
+        frame:SetMovable(true)
+        drag:SetScript("OnMouseDown", function(_, button)
+            if button == "LeftButton" then frame:StartMoving() end
+        end)
+        drag:SetScript("OnMouseUp", function() frame:StopMovingOrSizing() end)
+        drag:SetScript("OnHide", function() frame:StopMovingOrSizing() end)
         frame.empty = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         frame.empty:SetPoint("TOP", 0, -56)
-        frame.scroll = CreateFrame("ScrollFrame", "DCI_IgnoredItemsScroll", frame, "UIPanelScrollFrameTemplate")
-        frame.scroll:SetPoint("TOPLEFT", 16, -36)
-        frame.scroll:SetPoint("BOTTOMRIGHT", -44, 56)
-        frame.scroll.ScrollBar.scrollStep = 38
+        frame.inset = CreateFrame("Frame", nil, frame, "InsetFrameTemplate3")
+        frame.inset:SetPoint("TOPLEFT", 4, -28)
+        frame.inset:SetPoint("BOTTOMRIGHT", -6, 44)
+        frame.scroll = CreateFrame("ScrollFrame", "DCI_IgnoredItemsScroll", frame.inset, "UIPanelScrollFrameTemplate")
+        frame.scroll:SetPoint("TOPLEFT", 3, -3)
+        frame.scroll:SetPoint("BOTTOMRIGHT", -23, 3)
+        frame.scroll.ScrollBar.scrollStep = 41
         frame.content = CreateFrame("Frame", nil, frame.scroll)
-        frame.content:SetSize(390, 1)
+        frame.content:SetSize(274, 1)
         frame.scroll:SetScrollChild(frame.content)
         frame.rows = {}
         local reset = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        reset:SetSize(200, 28)
-        reset:SetPoint("BOTTOM", 0, 16)
+        frame.reset = reset
+        reset:SetSize(200, 24)
+        reset:SetPoint("BOTTOM", 0, 10)
         reset:SetText(L["Reset Ignored Items"])
         reset:SetScript("OnClick", DCI.ResetIgnoredItem)
         frame:SetScript("OnShow", function()
@@ -532,12 +611,7 @@ function DCI.ShowIgnoredItems()
             DCI.RefreshIgnoredItems()
         end)
         frame:SetScript("OnHide", function() GameTooltip:Hide() end)
-        SkinWidget("Panel", frame)
-        SkinWidget("CloseButton", frame.CloseButton)
-        SkinWidget("ScrollBar", frame.scroll.ScrollBar)
-        SkinWidget("Button", reset)
-        SkinWidget("StateButtonLabel", reset)
-        SkinFonts(frame)
+        SkinIgnoredItems()
     end
     frame:Show()
     DCI.RefreshIgnoredItems()
@@ -1053,36 +1127,12 @@ function DCI.OpenSettings()
 end
 
 function DCI.UpdateWindowTheme()
-    if not isForever or not DCIFrame then return end
-    if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
-    if DCI_DB.HideBronzeTheme then
-        if not DCIFrame.RegularTheme then
-            -- Use the same panel artwork as the addon's regular client theme.
-            local regularTheme = CreateFrame("Frame", nil, DCIFrame, "BasicFrameTemplate")
-            regularTheme:SetAllPoints(DCIFrame)
-            regularTheme:SetFrameLevel(DCIFrame:GetFrameLevel())
-            regularTheme.CloseButton:Hide()
-            DCIFrame.RegularTheme = regularTheme
-        end
-        DCIFrame.NineSlice:Hide()
-        DCIFrame.Bg:Hide()
-        DCIFrame.RegularTheme:Show()
-    else
-        DCIFrame.NineSlice:Show()
-        DCIFrame.Bg:Show()
-        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
-    end
+    UpdateFrameTheme(DCIFrame)
+    UpdateFrameTheme(DCI.IgnoredItemsFrame)
 end
 
 local function CreateMainFrame()
-    -- This is the base used by Forever's native loot panel, including its bronze art.
-    local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
-    local frame = CreateFrame("Frame", "DCIFrame", UIParent, template)
-    if isForever then
-        -- Unlike BasicFrameTemplate, the flat panel does not include a close button.
-        frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
-        DCI.UpdateWindowTheme()
-    end
+    local frame = CreateWindowFrame("DCIFrame")
     frame:HookScript("OnShow", function()
         DCI.LastWindowChange = "shown"
         DCI.TraceWindow("shown")
@@ -2814,11 +2864,13 @@ if EllesmereUI and type(EllesmereUI.RegisterSkin) == "function" then
         ellesmereSkin = S
         SkinMainWindow()
         SkinSettings()
+        SkinIgnoredItems()
         -- Font is a one-shot primitive in v9.4; refresh it for live font changes.
         if type(S.OnLooksChanged) == "function" then
             S.OnLooksChanged(function()
                 if mainWidgetsReady then SkinFonts(DCIFrame) end
                 if settingsWidgetsReady then SkinFonts(DCI_ConfigPanel) end
+                if DCI.IgnoredItemsFrame then SkinFonts(DCI.IgnoredItemsFrame) end
             end)
         end
     end)

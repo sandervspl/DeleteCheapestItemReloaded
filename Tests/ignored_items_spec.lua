@@ -17,7 +17,7 @@ for _, client in ipairs(Helpers.clients) do
             local frame = addon.IgnoredItemsFrame
             assert.is_true(frame:IsShown())
             assert.equals(33, #frame.rows)
-            assert.equals(env.items[10].link, frame.rows[1].label:GetText())
+            assert.equals(env.items[10].name, frame.rows[1].label:GetText())
             assert.equals("Item ID: 20", frame.rows[2].label:GetText())
             assert.equals("Item ID: 60", frame.rows[33].label:GetText())
             frame.scroll:SetVerticalScroll(800)
@@ -27,7 +27,7 @@ for _, client in ipairs(Helpers.clients) do
 
             env.items[20].pending = false
             env.fire("GET_ITEM_INFO_RECEIVED", 20, true)
-            assert.equals(env.items[20].link, frame.rows[2].label:GetText())
+            assert.equals(env.items[20].name, frame.rows[2].label:GetText())
             frame.rows[1].remove:Fire("OnClick")
             assert.is_false(addon.IsItemIgnored(10))
             assert.equals(10, addon.GetSortedBagItems()[1].itemID)

@@ -46,12 +46,26 @@ for _, client in ipairs(Helpers.clients) do
                 env.addItem(20, 10)
                 env.putItem(0, 2, 20)
                 env.addon.UpdateDCIFrame()
+                env.SlashCmdList.DCI("ignored")
+                local ignored = env.addon.IgnoredItemsFrame
+                env.addon.SaveIgnoredItem(10)
                 if not early then
                     env.DCI_DB.HideBronzeTheme = true
                     env.addon.UpdateWindowTheme()
                     apply(skin)
                 end
                 assert.equals("Shell", env.DCIFrame.skinKind)
+                assert.equals("Shell", ignored.skinKind)
+                assert.equals("Inset", ignored.inset.skinKind)
+                assert.equals("CloseButton", ignored.CloseButton.skinKind)
+                assert.equals("Button", ignored.rows[1].remove.skinKind)
+                if ignored.RegularTheme then assert.is_false(ignored.RegularTheme:IsShown()) end
+                ignored.rows[1].remove:Fire("OnClick")
+                assert.is_false(env.addon.IsItemIgnored(10))
+                env.addon.SaveIgnoredItem(10)
+                env.DCI_DB.HideBronzeTheme = false
+                env.addon.UpdateWindowTheme()
+                if ignored.RegularTheme then assert.is_false(ignored.RegularTheme:IsShown()) end
                 assert.equals("CloseButton", env.DCIFrame.CloseButton.skinKind)
                 assert.equals("Panel", env.DCI_ConfigPanel.skinKind)
                 assert.equals("Checkbox", env.DCI_Config_Checkbox_HideSoulbound.skinKind)
@@ -71,6 +85,7 @@ for _, client in ipairs(Helpers.clients) do
                 if looksChanged then
                     looksChanged()
                     assert.equals(2, env.DCI_TitleText.fontRevision)
+                    assert.equals(2, ignored.rows[1].label.fontRevision)
                 end
                 if client.game == "camelot" and env.DCIFrame.RegularTheme then
                     assert.is_false(env.DCIFrame.RegularTheme:IsShown())
