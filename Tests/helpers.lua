@@ -28,7 +28,7 @@ function Helpers.loadAddon(options)
     env.openBags = {}
     env.DCI_DB = options.saved or {}
     env.EllesmereUI = options.ellesmereUI
-    env.SlashCmdList, env.StaticPopupDialogs = {}, {}
+    env.SlashCmdList, env.StaticPopupDialogs, env.UISpecialFrames = {}, {}, {}
     env.NUM_BAG_SLOTS = 4
     env.NUM_TOTAL_EQUIPPED_BAG_SLOTS = env.client.scrollBoxLoot and 5 or 4
     env.YES, env.NO, env.DELETE, env.NEVER, env.ERROR_CAPS = "Yes", "No", "Delete", "Never", "Error"
@@ -41,8 +41,8 @@ function Helpers.loadAddon(options)
     local methods = {}
     local newFrame
     for name in ("SetFrameStrata SetMovable SetOwner SetBackdropColor SetTextColor SetAlpha " ..
-        "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving StopMovingOrSizing SetClampedToScreen " ..
-        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition"):gmatch("%S+") do
+        "SetTexture SetVertexColor SetTexCoord SetBlendMode SetAllPoints StartMoving SetClampedToScreen " ..
+        "AddDoubleLine AddLine SetItemByID SetNumeric SetMaxLetters SetAutoFocus SetFocus ClearFocus SetCursorPosition EnableMouse"):gmatch("%S+") do
         methods[name] = function() end
     end
     function methods:SetScript(event, fn) self.scripts[event] = fn end
@@ -77,10 +77,23 @@ function Helpers.loadAddon(options)
     function methods:GetText() return self.text end
     function methods:SetDefaultText(text) self.text = text end
     function methods:SetFontObject(font) self.fontObject = font end
-    function methods:SetWidth(width) self.width = width end
+    function methods:SetJustifyH(value) self.justifyH = value end
+    function methods:SetWordWrap(value) self.wordWrap = value end
+    function methods:SetWidth(width) self:SetSize(width, self.height or 20) end
     function methods:GetWidth() return self.width or 100 end
-    function methods:SetSize(width, height) self.width, self.height = width, height end
+    function methods:SetSize(width, height)
+        if self.sizing then
+            width, height = math.max(width, self.minWidth), math.max(height, self.minHeight)
+        end
+        local changed = width ~= self.width or height ~= self.height
+        self.width, self.height = width, height
+        if changed then self:Fire("OnSizeChanged", width, height) end
+    end
     function methods:GetSize() return self.width or 100, self.height or 20 end
+    function methods:SetResizable(value) self.resizable = value end
+    function methods:SetResizeBounds(width, height) self.minWidth, self.minHeight = width, height end
+    function methods:StartSizing(point) self.sizing = point end
+    function methods:StopMovingOrSizing() self.sizing = nil end
     function methods:SetPoint(...) self.point = { ... } end
     function methods:GetPoint() return unpack(self.point or { "TOPLEFT", nil, "TOPRIGHT", 6, -16 }) end
     function methods:ClearAllPoints() self.point = nil end
