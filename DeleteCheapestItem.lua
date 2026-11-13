@@ -1976,11 +1976,11 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for window behavior
-    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 5*27+16, L["Window Behavior"])
+    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 6*27+16, L["Window Behavior"])
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
 
-    CreateConfigPanelCheckbox(Section_WindowSettings, 250, -27, "FollowLootWindow", L["Follow loot window after dragging"])
+    CreateConfigPanelCheckbox(Section_WindowSettings, 0, 5*-27, "FollowLootWindow", L["Follow loot window after dragging"])
 
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
@@ -2010,7 +2010,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auctomatic display settings
-    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10, 5*27+16, L["Automatic Display"])
+    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10-27, 5*27+16, L["Automatic Display"])
 
     --checkboxes for auto settings
     local Checkbox_Auto_Loot = CreateConfigPanelCheckbox(Section_AutomaticDisplay, 0, 0*-27, "Auto_Loot", L["Looting items"])
@@ -2058,7 +2058,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auction settings
-    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27, 6*27+15, L["Auction Prices"])
+    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27, 6*27+15, L["Auction Prices"])
 
     --checkbox for UseAuctionPrices
     local Checkbox_UseAuctionPrices = CreateConfigPanelCheckbox(Section_AuctionSettings, 0, 0*-27, "UseAuctionPrices", L["Use auction prices"])
