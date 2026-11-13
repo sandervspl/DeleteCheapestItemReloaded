@@ -42,107 +42,13 @@ local function SkinFonts(frame)
     end
 end
 
-local function UpdateFrameTheme(frame)
-    if not isForever or not frame then return end
-    if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
-    if DCI_DB.HideBronzeTheme then
-        if not frame.RegularTheme then
-            local regularTheme = CreateFrame("Frame", nil, frame, "BasicFrameTemplate")
-            regularTheme:SetAllPoints(frame)
-            regularTheme:SetFrameLevel(frame:GetFrameLevel())
-            regularTheme.CloseButton:Hide()
-            frame.RegularTheme = regularTheme
-        end
-        frame.NineSlice:Hide()
-        frame.Bg:Hide()
-        frame.RegularTheme:Show()
-    else
-        frame.NineSlice:Show()
-        frame.Bg:Show()
-        if frame.RegularTheme then frame.RegularTheme:Hide() end
-    end
-end
-
-local function CreateWindowFrame(name)
-    -- Forever's native loot panel uses this flat base, including its bronze art.
-    local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
-    local frame = CreateFrame("Frame", name, UIParent, template)
-    if isForever then
-        frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
-        UpdateFrameTheme(frame)
-    end
-    return frame
-end
-
-local function AddResizeGrip(frame, savedKey, minWidth, minHeight, defaultHeight, layout, getExtraWidth)
-    local function ExtraWidth() return getExtraWidth and getExtraWidth() or 0 end
-    frame:SetResizable(true)
-    function frame:DCI_ApplySize()
-        local extra = ExtraWidth()
-        self:SetResizeBounds(minWidth + extra, minHeight)
-        if not self.DCI_Resizing then
-            local size = DCI_DB[savedKey] or {}
-            self:SetSize(math.max(minWidth, size.width or minWidth) + extra,
-                math.max(minHeight, size.height or defaultHeight))
-        end
-        layout(self, self:GetSize())
-    end
-    local function FinishResize()
-        if not frame.DCI_Resizing then return end
-        frame:StopMovingOrSizing()
-        frame.DCI_Resizing = false
-        local width, height = frame:GetSize()
-        DCI_DB[savedKey] = { width = math.max(minWidth, width - ExtraWidth()), height = height }
-        if frame == DCIFrame then
-            local point, _, relativePoint, x, y = frame:GetPoint(1)
-            DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
-        end
-    end
-    local grip = CreateFrame("Button", nil, frame, "PanelResizeButtonTemplate")
-    frame.ResizeGrip = grip
-    grip.target = frame
-    grip:SetPoint("BOTTOMRIGHT", -2, 2)
-    -- Forever's border lives on a high frame level; keep the grip clickable above it.
-    grip:SetFrameLevel(math.max(frame:GetFrameLevel() + 10,
-        frame.NineSlice and frame.NineSlice:GetFrameLevel() + 1 or 0))
-    grip:SetScript("OnMouseDown", function(_, button)
-        if button ~= "LeftButton" then return end
-        frame.DCI_Resizing = true
-        frame:StartSizing("BOTTOMRIGHT", true)
-    end)
-    grip:SetScript("OnMouseUp", FinishResize)
-    grip:HookScript("OnHide", FinishResize)
-    frame:HookScript("OnHide", FinishResize)
-    frame:HookScript("OnSizeChanged", layout)
-    frame:DCI_ApplySize()
-end
-
-local function SkinWindowShell(frame)
-    if type(ellesmereSkin.Shell) == "function" then
-        if frame.RegularTheme then frame.RegularTheme:Hide() end
-        SkinWidget("Shell", frame)
-    end
-    SkinWidget("CloseButton", frame.CloseButton)
-end
-
-local function SkinIgnoredItems()
-    local frame = DCI.IgnoredItemsFrame
-    if not ellesmereSkin or not frame then return end
-    SkinWindowShell(frame)
-    SkinWidget("Inset", frame.inset)
-    SkinWidget("ScrollBar", frame.scroll.ScrollBar)
-    SkinWidget("Button", frame.reset)
-    SkinWidget("StateButtonLabel", frame.reset)
-    for _, row in ipairs(frame.rows) do
-        SkinWidget("Button", row.remove)
-        SkinWidget("StateButtonLabel", row.remove)
-    end
-    SkinFonts(frame)
-end
-
 local function SkinMainWindow()
     if not ellesmereSkin or not mainWidgetsReady then return end
-    SkinWindowShell(DCIFrame)
+    if type(ellesmereSkin.Shell) == "function" then
+        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
+        SkinWidget("Shell", DCIFrame)
+    end
+    SkinWidget("CloseButton", DCIFrame.CloseButton)
     SkinWidget("Inset", DCI_BottomSection_Inset)
     SkinWidget("ScrollBar", DCI_ScrollParent.ScrollBar)
     for i = 1, DCI.MAX_ITEM_FRAMES do
@@ -417,8 +323,6 @@ function DCI.HandleSlashCommand(message)
         DCI.ToggleDCIFrame()
     elseif command == "status" then
         DCI.TraceWindow("status; last change=" .. (DCI.LastWindowChange or "none"), true)
-    elseif command == "ignored" then
-        DCI.ShowIgnoredItems()
     elseif command == "debug" or command == "debug on" or command == "debug off" then
         if command == "debug" then DCI.WindowDebug = not DCI.WindowDebug
         else DCI.WindowDebug = command == "debug on" end
@@ -426,7 +330,7 @@ function DCI.HandleSlashCommand(message)
         DCI.DebugPrint("Window debug " .. (DCI.WindowDebug and "ON. Reproduce the problem; /dci debug off stops tracing." or "OFF."), DCI.DEBUG_OUTPUT_FORCED)
         if DCI.WindowDebug then DCI.TraceWindow("debug enabled", true) end
     else
-        DCI.DebugPrint("Commands: /dci, /dci ignored, /dci debug [on|off], /dci status", DCI.DEBUG_OUTPUT_FORCED)
+        DCI.DebugPrint("Commands: /dci, /dci debug [on|off], /dci status", DCI.DEBUG_OUTPUT_FORCED)
     end
 end
 
@@ -499,22 +403,12 @@ end
 --function to save an item to the ignore list
 function DCI.SaveIgnoredItem(itemID)
     if not DCI_DB.IgnoredItems then DCI_DB.IgnoredItems = {} end
-    if DCI.IsItemIgnored(itemID) then return end
 
-    table.insert(DCI_DB.IgnoredItems, itemID)
+    local IgnoredItems_copy = DCI_DB.IgnoredItems
+    table.insert(IgnoredItems_copy, itemID)
+    DCI_DB.IgnoredItems = IgnoredItems_copy
 
-    DCI.DebugPrint(L["Ignoring item: "] .. (DCI.ItemInfo[itemID].name or tostring(itemID)), DCI.DEBUG_OUTPUT_FORCED)
-    DCI.RefreshIgnoredItems()
-end
-
-function DCI.RemoveIgnoredItem(itemID)
-    local items = DCI_DB.IgnoredItems or {}
-    -- Older saved lists can contain duplicates; removing an item must unignore it fully.
-    for i = #items, 1, -1 do
-        if items[i] == itemID then table.remove(items, i) end
-    end
-    DCI.RefreshIgnoredItems()
-    DCI.UpdateDCIFrame(false)
+    DCI.DebugPrint(L["Ignoring item: "]..DCI.ItemInfo[itemID].name, DCI.DEBUG_OUTPUT_FORCED)
 end
 
 --function to clear the ignore list
@@ -522,7 +416,6 @@ function DCI.ResetIgnoredItem()
     DCI.DebugPrint(L["Resetting ignored items list."], DCI.DEBUG_OUTPUT_FORCED)
 
     DCI_DB.IgnoredItems = {}
-    DCI.RefreshIgnoredItems()
     DCI.UpdateDCIFrame(false)
 end
 
@@ -541,135 +434,6 @@ function DCI.IsItemIgnored(itemID)
     end
 
     return false  -- ItemID not found in the list
-end
-
-local function LayoutIgnoredItems(frame, width)
-    frame.content:SetWidth(width - 36)
-    for _, row in ipairs(frame.rows) do
-        row:SetWidth(width - 36)
-        row.background:SetWidth(width - 160)
-        row.label:SetWidth(width - 174)
-    end
-end
-
--- Keep the saved order stable while displaying one row per item, even for legacy duplicates.
-function DCI.RefreshIgnoredItems()
-    local frame = DCI.IgnoredItemsFrame
-    if not frame or not frame:IsShown() then return end
-    local seen, count = {}, 0
-    for _, itemID in ipairs(DCI_DB.IgnoredItems or {}) do
-        if not seen[itemID] then
-            seen[itemID] = true
-            count = count + 1
-            local row = frame.rows[count]
-            if not row then
-                row = CreateFrame("Frame", nil, frame.content)
-                row:EnableMouse(true)
-                row:SetSize(274, 38)
-                row:SetPoint("TOPLEFT", 0, -2 - (count - 1) * 41)
-                row.icon = row:CreateTexture(nil, "ARTWORK")
-                row.icon:SetSize(38, 38)
-                row.icon:SetPoint("LEFT", 0, 0)
-                row.background = row:CreateTexture(nil, "BACKGROUND")
-                row.background:SetTexture(136796)
-                row.background:SetVertexColor(0.5, 0.5, 0.5, 1)
-                row.background:SetTexCoord(0.08, 0.92, 0.18, 0.82)
-                row.background:SetPoint("LEFT", row.icon, "RIGHT", 5, 0)
-                row.background:SetSize(150, 38)
-                row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-                row.label:SetPoint("LEFT", row.background, "LEFT", 7, 0)
-                row.label:SetSize(136, 30)
-                row.label:SetJustifyH("LEFT")
-                row.label:SetWordWrap(false)
-                row.remove = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-                row.remove:SetSize(76, 32)
-                row.remove:SetPoint("LEFT", row.background, "RIGHT", 3, 0)
-                row.remove:SetText(L["Remove"])
-                row.remove:SetScript("OnClick", function() DCI.RemoveIgnoredItem(row.itemID) end)
-                row:SetScript("OnEnter", function(self)
-                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:SetItemByID(self.itemID)
-                    GameTooltip:Show()
-                end)
-                row:SetScript("OnLeave", function() GameTooltip:Hide() end)
-                SkinWidget("Button", row.remove)
-                SkinWidget("StateButtonLabel", row.remove)
-                SkinFonts(row)
-                frame.rows[count] = row
-            end
-            row.itemID = itemID
-            local info = DCI.ItemInfo[itemID]
-            row.icon:SetTexture(info.icon or 134400)
-            row.label:SetText(info.name or string.format(L["Item ID: %s"], tostring(itemID)))
-            local r, g, b = 1, 1, 1
-            if info.quality then r, g, b = C_Item.GetItemQualityColor(info.quality) end
-            row.label:SetTextColor(r, g, b)
-            row:Show()
-        end
-    end
-    for i = count + 1, #frame.rows do frame.rows[i]:Hide() end
-    frame.empty:SetText(count == 0 and L["No ignored items."] or "")
-    frame.content:SetSize(frame:GetWidth() - 36, math.max(1, count * 41 + 2))
-    LayoutIgnoredItems(frame, frame:GetWidth())
-end
-
-function DCI.ShowIgnoredItems()
-    local frame = DCI.IgnoredItemsFrame
-    if not frame then
-        frame = CreateWindowFrame("DCI_IgnoredItemsFrame")
-        frame:Hide()
-        DCI.IgnoredItemsFrame = frame
-        frame:SetSize(310, 286)
-        frame:SetPoint("CENTER")
-        frame:SetClampedToScreen(true)
-        frame:SetFrameStrata("DIALOG")
-        frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
-        if UISpecialFrames then table.insert(UISpecialFrames, "DCI_IgnoredItemsFrame") end
-        local titleParent = isForever and frame.TitleContainer or frame
-        if isForever then titleParent.TitleText:Hide() end
-        local title = titleParent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        title:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
-        title:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -25, -24)
-        title:SetText(L["Ignored Items"])
-        local drag = CreateFrame("Frame", nil, titleParent)
-        drag:SetAllPoints(title)
-        drag:EnableMouse(true)
-        frame:SetMovable(true)
-        drag:SetScript("OnMouseDown", function(_, button)
-            if button == "LeftButton" then frame:StartMoving() end
-        end)
-        drag:SetScript("OnMouseUp", function() frame:StopMovingOrSizing() end)
-        drag:SetScript("OnHide", function() frame:StopMovingOrSizing() end)
-        frame.empty = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        frame.empty:SetPoint("TOP", 0, -56)
-        frame.inset = CreateFrame("Frame", nil, frame, "InsetFrameTemplate3")
-        frame.inset:SetPoint("TOPLEFT", 4, -28)
-        frame.inset:SetPoint("BOTTOMRIGHT", -6, 44)
-        frame.scroll = CreateFrame("ScrollFrame", "DCI_IgnoredItemsScroll", frame.inset, "UIPanelScrollFrameTemplate")
-        frame.scroll:SetPoint("TOPLEFT", 3, -3)
-        frame.scroll:SetPoint("BOTTOMRIGHT", -23, 3)
-        frame.scroll.ScrollBar.scrollStep = 41
-        frame.content = CreateFrame("Frame", nil, frame.scroll)
-        frame.content:SetSize(274, 1)
-        frame.scroll:SetScrollChild(frame.content)
-        frame.rows = {}
-        local reset = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        frame.reset = reset
-        reset:SetSize(200, 24)
-        reset:SetPoint("BOTTOM", 0, 10)
-        reset:SetText(L["Reset Ignored Items"])
-        reset:SetScript("OnClick", DCI.ResetIgnoredItem)
-        frame:SetScript("OnShow", function()
-            frame:DCI_ApplySize()
-            frame.scroll:SetVerticalScroll(0)
-            DCI.RefreshIgnoredItems()
-        end)
-        frame:SetScript("OnHide", function() GameTooltip:Hide() end)
-        AddResizeGrip(frame, "IgnoredWindowSize", 310, 160, 286, LayoutIgnoredItems)
-        SkinIgnoredItems()
-    end
-    frame:Show()
-    DCI.RefreshIgnoredItems()
 end
 
 --function to get auction price by itemID
@@ -1182,12 +946,36 @@ function DCI.OpenSettings()
 end
 
 function DCI.UpdateWindowTheme()
-    UpdateFrameTheme(DCIFrame)
-    UpdateFrameTheme(DCI.IgnoredItemsFrame)
+    if not isForever or not DCIFrame then return end
+    if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
+    if DCI_DB.HideBronzeTheme then
+        if not DCIFrame.RegularTheme then
+            -- Use the same panel artwork as the addon's regular client theme.
+            local regularTheme = CreateFrame("Frame", nil, DCIFrame, "BasicFrameTemplate")
+            regularTheme:SetAllPoints(DCIFrame)
+            regularTheme:SetFrameLevel(DCIFrame:GetFrameLevel())
+            regularTheme.CloseButton:Hide()
+            DCIFrame.RegularTheme = regularTheme
+        end
+        DCIFrame.NineSlice:Hide()
+        DCIFrame.Bg:Hide()
+        DCIFrame.RegularTheme:Show()
+    else
+        DCIFrame.NineSlice:Show()
+        DCIFrame.Bg:Show()
+        if DCIFrame.RegularTheme then DCIFrame.RegularTheme:Hide() end
+    end
 end
 
 local function CreateMainFrame()
-    local frame = CreateWindowFrame("DCIFrame")
+    -- This is the base used by Forever's native loot panel, including its bronze art.
+    local template = isForever and "DefaultPanelFlatTemplate" or "BasicFrameTemplate"
+    local frame = CreateFrame("Frame", "DCIFrame", UIParent, template)
+    if isForever then
+        -- Unlike BasicFrameTemplate, the flat panel does not include a close button.
+        frame.CloseButton = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
+        DCI.UpdateWindowTheme()
+    end
     frame:HookScript("OnShow", function()
         DCI.LastWindowChange = "shown"
         DCI.TraceWindow("shown")
@@ -1211,7 +999,7 @@ end
 
 -- A saved position can be overridden while following the loot window.
 local function AnchorWindow(point, relativeTo, relativePoint, x, y)
-    if DCI.WindowDragging or DCIFrame.DCI_Resizing then return end
+    if DCI.WindowDragging then return end
     if DCI_DB.WindowPosition and not (DCI_DB.FollowLootWindow and relativeTo == LootFrame) then
         local position = DCI_DB.WindowPosition
         point, relativeTo, relativePoint = position.point, UIParent, position.relativePoint
@@ -1228,17 +1016,6 @@ local function FinishWindowDrag()
     -- StartMoving detaches the frame from its context; save the screen anchor.
     local point, _, relativePoint, x, y = DCIFrame:GetPoint(1)
     DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
-end
-
-local function LayoutMainWindow(frame, width, height)
-    DCI_ScrollParent:SetSize(width - 29, height - 85)
-    DCI_ScrollChild:SetWidth(width - 29)
-    for i = 1, DCI.MAX_ITEM_FRAMES do
-        local row = _G["DCI_Item" .. i]
-        row:SetWidth(width - 32)
-        row.DCI_InfoBackground:SetWidth(width - 140)
-        _G["DCI_ItemInfo_TextTopLeft" .. i]:SetWidth(width - 154)
-    end
 end
 
 --function to create and show a frame with cheapest items
@@ -1349,7 +1126,6 @@ function DCI.CreateDCIFrame()
 
         GameTooltip:AddLine(L["Tips"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Click on an item's icon to add it to the ignore list"], 0.6, 0.6, 0.6)
-        GameTooltip:AddLine("* " .. L["Type /dci ignored to view and manage ignored items"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Type /dci to open the window at any time"], 0.6, 0.6, 0.6)
         GameTooltip:AddLine("* " .. L["Feedback and suggestions are welcome! :)"], 0.6, 0.6, 0.6)
 
@@ -1373,7 +1149,7 @@ function DCI.CreateDCIFrame()
     --bottom section inset
     local DCI_BottomSection_Inset = CreateFrame("ScrollFrame", "DCI_BottomSection_Inset", DCIFrame, "InsetFrameTemplate3")
     DCI_BottomSection_Inset:SetPoint("TOPLEFT", DCIFrame, "TOPLEFT", 3+1, -60)
-    DCI_BottomSection_Inset:SetPoint("BOTTOMRIGHT", DCIFrame, "BOTTOMRIGHT", -5-1, 20)
+    DCI_BottomSection_Inset:SetPoint("BOTTOMRIGHT", DCIFrame, "BOTTOMRIGHT", -5-1, 4)
 
     --scroll parent
     local DCI_ScrollParent = CreateFrame("ScrollFrame", "DCI_ScrollParent", DCI_BottomSection_Inset, "UIPanelScrollFrameTemplate")
@@ -1433,8 +1209,6 @@ function DCI.CreateDCIFrame()
         --display item name/values
         local ItemInfo_TextTopLeft = ItemParent:CreateFontString("DCI_ItemInfo_TextTopLeft"..itemNum, "OVERLAY", "GameFontNormal")
         ItemInfo_TextTopLeft:SetPoint("TOPLEFT", ItemInfo_Bg, "TOPLEFT", 7, -5)
-        ItemInfo_TextTopLeft:SetJustifyH("LEFT")
-        ItemInfo_TextTopLeft:SetWordWrap(false)
         local ItemInfo_TextTopRight = ItemParent:CreateFontString("DCI_ItemInfo_TextTopRight"..itemNum, "OVERLAY", "GameFontNormal")
         ItemInfo_TextTopRight:SetPoint("TOPRIGHT", ItemInfo_Bg, "TOPRIGHT", -7, -5)
         ItemInfo_TextTopRight:SetText(" ") --to ensure relative positioning works
@@ -1465,8 +1239,6 @@ function DCI.CreateDCIFrame()
             LootFrame.DCI_LootIndexUserClick = nil
         end
     end)
-    AddResizeGrip(DCIFrame, "WindowSize", 290, 200, 240, LayoutMainWindow,
-        function() return DCI_DB.ShowFullStackValues and 180 or 0 end)
     mainWidgetsReady = true
     SkinMainWindow()
 end
@@ -1493,8 +1265,10 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
     if DCI_DB.HideWindowTitle then DCI_TitleText:Hide() else DCI_TitleText:Show() end
 
-    DCIFrame:DCI_ApplySize()
-    local extraWidth = DCIFrame:GetWidth() - 290
+    local extraWidth = DCI_DB.ShowFullStackValues and 180 or 0
+    DCIFrame:SetWidth(290 + extraWidth)
+    DCI_ScrollParent:SetWidth(261 + extraWidth)
+    DCI_ScrollChild:SetWidth(261 + extraWidth)
 
     --quit if player is in combat based on global AllowInCombat
     if DCI_DB.AllowInCombat == false and UnitAffectingCombat("player") then
@@ -1708,7 +1482,6 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     --get sorted bag items array
     DCI.DebugPrint("Updating displayed items")
     local bagItems = DCI.GetSortedBagItems()
-    DCI_ScrollChild:SetSize(DCIFrame:GetWidth() - 29, math.max(1, math.min(#bagItems, DCI.MAX_ITEM_FRAMES) * 41 + 8))
 
     --loop through bag item frames
     local highlightCount = 0
@@ -1807,9 +1580,15 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                     ItemInfoBottomRight:SetTextColor(0.3,0.3,0.3)
                 end
             else
+                --shorten long item names
+                local shortName = bagItem.name or ""
+                if string.len(shortName) > 19 then
+                    shortName = string.sub(bagItem.name, 1, 17) .. "..."
+                end
+
                 --top line item name
                 local r,g,b,hex = C_Item.GetItemQualityColor(bagItem.quality)
-                ItemInfoTopLeft:SetText("|c" .. hex .. (bagItem.name or "") .. "|r")
+                ItemInfoTopLeft:SetText("|c" .. hex .. shortName .. "|r")
                 ItemInfoTopRight:Hide()
 
                 --bottom line price
@@ -2198,8 +1977,8 @@ function DCI.CreateDCISettings()
     versionText:SetText(DCI.ADDON_VERSION)
     versionText:SetTextColor(0.3, 0.3, 0.3, 0.3)
 
-    --buttons to manage ignored items, show test window, reset settings
-    local Button_IgnoredItems = CreateConfigPanelButton(ConfigFrame, 16, -42, L["Ignored Items"], DCI.ShowIgnoredItems)
+    --buttons to reset ignore list, show test window, reset settings
+    local Button_ResetIgnore = CreateConfigPanelButton(ConfigFrame, 16, -42, L["Reset Ignored Items"], DCI.ResetIgnoredItem)
     local Button_TestWindow = CreateConfigPanelButton(ConfigFrame, 16+170, -42, L["Open Test Window"], DCI.ToggleDCIFrame)
     local Button_DefaultSettings = CreateConfigPanelButton(ConfigFrame, 16+170*2, -42, L["Reset Default Settings"], function()
         DCI.InitializeSavedVariables(true)
@@ -2492,8 +2271,6 @@ function DCI.InitializeSavedVariables(resetDefaults)
         DCI_DB.DebugOutput = nil
     end
     DCI.UpdateWindowTheme()
-    if DCIFrame.DCI_ApplySize then DCIFrame:DCI_ApplySize() end
-    if DCI.IgnoredItemsFrame then DCI.IgnoredItemsFrame:DCI_ApplySize() end
 end
 
 --function to register events based on user settings
@@ -2660,7 +2437,6 @@ function DCI.HandleEvent(self, event, ...)
 
     if event == "GET_ITEM_INFO_RECEIVED" and arg2 then
         rawset(DCI.ItemInfo, arg1, nil)
-        if DCI.IsItemIgnored(arg1) then DCI.RefreshIgnoredItems() end
         if DCIFrame:IsShown() then DCI.UpdateDCIFrame(false) end
     end
 
@@ -2930,13 +2706,11 @@ if EllesmereUI and type(EllesmereUI.RegisterSkin) == "function" then
         ellesmereSkin = S
         SkinMainWindow()
         SkinSettings()
-        SkinIgnoredItems()
         -- Font is a one-shot primitive in v9.4; refresh it for live font changes.
         if type(S.OnLooksChanged) == "function" then
             S.OnLooksChanged(function()
                 if mainWidgetsReady then SkinFonts(DCIFrame) end
                 if settingsWidgetsReady then SkinFonts(DCI_ConfigPanel) end
-                if DCI.IgnoredItemsFrame then SkinFonts(DCI.IgnoredItemsFrame) end
             end)
         end
     end)
