@@ -2216,6 +2216,17 @@ function DCI.CreateDCISettings()
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 0, 5*-27, "FollowLootWindow", L["Keep beside the loot window"])
 
+    local hideMinimap = CreateConfigPanelCheckbox(Section_WindowSettings, 250, 5*-27, "HideMinimapButton", L["Hide minimap button"], function(self)
+        DCI.SetMinimapHidden(self:GetChecked())
+    end)
+    -- This checkbox uses the library's nested saved settings rather than a flat key.
+    hideMinimap.DCI_UpdateVariable = nil
+    local function UpdateMinimapCheckbox()
+        hideMinimap:SetChecked(DCI_DB.Minimap.hide)
+    end
+    ConfigFrame:HookScript("OnShow", UpdateMinimapCheckbox)
+    UpdateMinimapCheckbox()
+
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
     
@@ -2485,6 +2496,8 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI_DB.Auto_QuestAccept == nil then DCI_DB.Auto_QuestAccept = true end
     if DCI_DB.Auto_QuestComplete == nil then DCI_DB.Auto_QuestComplete = true end
     if DCI_DB.Auto_Roll == nil then DCI_DB.Auto_Roll = true end
+
+    DCI.InitializeBroker()
 
     --on every load reset to no debug
     if DCI_DB.DebugOutput then

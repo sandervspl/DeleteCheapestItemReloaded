@@ -33,7 +33,7 @@ jobs:
           python -m pip install --editable "$RUNNER_TEMP/Mechanic/desktop"
 
       - name: Check Lua 5.1 syntax
-        run: luac5.1 -p DeleteCheapestItem.lua Localization.lua Tests/*.lua
+        run: luac5.1 -p DeleteCheapestItem.lua Localization.lua Broker.lua Libs/*/*.lua Tests/*.lua
 
       - name: Run tests through Mechanic
         run: mech call addon.test '{"addon":"DeleteCheapestItem","path":"."}'
