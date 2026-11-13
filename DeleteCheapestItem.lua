@@ -996,9 +996,14 @@ local function CreateMainFrame()
     return frame
 end
 
--- Automatic placement applies only until the player chooses a position.
+-- A saved position can be overridden while following the loot window.
 local function AnchorWindow(point, relativeTo, relativePoint, x, y)
-    if DCI.WindowDragging or DCI_DB.WindowPosition then return end
+    if DCI.WindowDragging then return end
+    if DCI_DB.WindowPosition and not (DCI_DB.FollowLootWindow and relativeTo == LootFrame) then
+        local position = DCI_DB.WindowPosition
+        point, relativeTo, relativePoint = position.point, UIParent, position.relativePoint
+        x, y = position.x, position.y
+    end
     DCIFrame:ClearAllPoints()
     DCIFrame:SetPoint(point, relativeTo, relativePoint, x, y)
 end
@@ -1975,6 +1980,8 @@ function DCI.CreateDCISettings()
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
 
+    CreateConfigPanelCheckbox(Section_WindowSettings, 250, -27, "FollowLootWindow", L["Follow loot window after dragging"])
+
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
     
@@ -2229,6 +2236,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
+    if DCI_DB.FollowLootWindow == nil then DCI_DB.FollowLootWindow = false end
     if DCI_DB.HideWindowTitle == nil then DCI_DB.HideWindowTitle = false end
     if DCI_DB.ShowFullStackValues == nil then DCI_DB.ShowFullStackValues = false end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
