@@ -996,9 +996,14 @@ local function CreateMainFrame()
     return frame
 end
 
--- Automatic placement applies only until the player chooses a position.
+-- A saved position can be overridden while following the loot window.
 local function AnchorWindow(point, relativeTo, relativePoint, x, y)
-    if DCI.WindowDragging or DCI_DB.WindowPosition then return end
+    if DCI.WindowDragging then return end
+    if DCI_DB.WindowPosition and not (DCI_DB.FollowLootWindow and relativeTo == LootFrame) then
+        local position = DCI_DB.WindowPosition
+        point, relativeTo, relativePoint = position.point, UIParent, position.relativePoint
+        x, y = position.x, position.y
+    end
     DCIFrame:ClearAllPoints()
     DCIFrame:SetPoint(point, relativeTo, relativePoint, x, y)
 end
@@ -1971,9 +1976,11 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for window behavior
-    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 5*27+16, L["Window Behavior"])
+    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 6*27+16, L["Window Behavior"])
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
+
+    CreateConfigPanelCheckbox(Section_WindowSettings, 0, 5*-27, "FollowLootWindow", L["Keep beside the loot window"])
 
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
@@ -2003,7 +2010,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auctomatic display settings
-    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10, 5*27+16, L["Automatic Display"])
+    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10-27, 5*27+16, L["Automatic Display"])
 
     --checkboxes for auto settings
     local Checkbox_Auto_Loot = CreateConfigPanelCheckbox(Section_AutomaticDisplay, 0, 0*-27, "Auto_Loot", L["Looting items"])
@@ -2051,7 +2058,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auction settings
-    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27, 6*27+15, L["Auction Prices"])
+    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27, 6*27+15, L["Auction Prices"])
 
     --checkbox for UseAuctionPrices
     local Checkbox_UseAuctionPrices = CreateConfigPanelCheckbox(Section_AuctionSettings, 0, 0*-27, "UseAuctionPrices", L["Use auction prices"])
@@ -2229,6 +2236,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
     if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
     if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
+    if DCI_DB.FollowLootWindow == nil then DCI_DB.FollowLootWindow = false end
     if DCI_DB.HideWindowTitle == nil then DCI_DB.HideWindowTitle = false end
     if DCI_DB.ShowFullStackValues == nil then DCI_DB.ShowFullStackValues = false end
     if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
