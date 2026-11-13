@@ -1980,7 +1980,7 @@ function DCI.CreateDCISettings()
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
 
-    CreateConfigPanelCheckbox(Section_WindowSettings, 0, 5*-27, "FollowLootWindow", L["Follow loot window after dragging"])
+    CreateConfigPanelCheckbox(Section_WindowSettings, 0, 5*-27, "FollowLootWindow", L["Keep beside the loot window"])
 
     --checkbox for HideSoulbound
     local Checkbox_HideSoulbound = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 0*-27, "HideSoulbound", L["Hide soulbound items"])
