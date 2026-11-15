@@ -1,6 +1,7 @@
 # Profiles system research
 
-Status: Research and proposal only. No runtime implementation or product decisions approved.
+Status: Research and proposal only. Ignored-item and position scopes are confirmed
+by the user below; no runtime implementation has been made.
 
 ## Recommendation
 
@@ -66,21 +67,24 @@ input and introduce a distinct account-wide root, for example `DCI_ProfilesDB`.
 Do not use one persisted variable simultaneously as the legacy character database
 and the selected shared profile.
 
-Recommended initial scope:
+Confirmed scope decisions:
+
+- Ignored items remain per character, independent of the selected profile.
+- Window positions and minimap position belong to the selected profile.
+
+Proposed remaining scope:
 
 - Profile: auction valuation, sorting, quality/soulbound filters, confirmation
   threshold, automatic window triggers, low-slot threshold and display preferences.
-- Character: selected profile, ignored-item protections, window geometry and
-  minimap placement/visibility.
+- Character: selected profile.
 - Session: debug mode, pending work, bag/item caches, dismissal flags and current
   quest/loot context.
 
-Ignored items are the main open product choice. Character-local protections
-preserve existing expectations. Profile-owned lists allow different activity
-profiles, but editing a shared profile then changes protections on every character
-using it. A shared base list with character additions is possible later, at added
-complexity. Geometry could also be profile-owned if profiles are intended as whole
-UI layouts rather than item policies.
+Selecting, copying or resetting a profile must preserve the current character's
+ignored items. Position edits affect all characters using the same profile;
+copying a profile must make independent copies of its position tables. Window
+sizes and minimap visibility were not specified by the position decision and
+remain separate scope choices.
 
 ## Suggested first release
 
@@ -90,8 +94,8 @@ UI layouts rather than item policies.
   settings. Confirm destructive replacement/reset and identify shared impact.
 - Preserve each existing character's settings in its own uniquely named profile
   on first login. Never let every migrating character overwrite one shared Default.
-- Keep character protections and geometry in their original scope unless the user
-  explicitly chooses otherwise. Define defaults for new characters separately.
+- Keep ignored-item protections per character and window/minimap positions per
+  profile, as confirmed by the user. Define defaults for new characters separately.
 - Defer spec switching, cross-account export/import and layered inheritance until
   requested. None is necessary to solve sharing settings between alts.
 
@@ -127,7 +131,9 @@ semantics accurately. [Implementation][ace-source]
 
 Use the existing Lua harness for meaningful behavior checks, followed by in-game
 checks on all four clients. Cover two characters migrating different settings;
-shared edits versus independent copies; nested-table isolation; deleting a profile
+shared edits versus independent copies; character-local ignored items surviving
+profile operations; profile-owned positions switching and copying independently;
+nested-table isolation; deleting a profile
 referenced by another character; switching with a pending popup/timer; auction
 cache invalidation; minimap rebinding; and reload persistence. Record client builds,
 repeatable steps and observed results. No implementation or in-game tests were
