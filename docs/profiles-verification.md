@@ -10,9 +10,11 @@ AceDB, LibDataBroker and LibDBIcon sources in the WoW mock.
 deliberate shared edits, independent copies, ignored-item isolation, resets,
 deletion references, reloads, both windows' presentation state, minimap rebinding,
 interrupted resizing, stale deletion callbacks, event subscriptions and cache
-invalidation on each of the four supported client fixtures.
+invalidation on each of the four supported client fixtures. Empty copy/delete
+actions are disabled with explanations, then re-enabled when eligible profiles
+become available; referenced profiles remain copyable but cannot be deleted.
 
-Local results: 240 passed, 0 failed using Lua 5.1 through Lupa plus the existing
+Local results: 244 passed, 0 failed using Lua 5.1 through Lupa plus the existing
 luassert synchronous runner (`python .cache/run-specs.py`); Lua 5.1 syntax passed.
 The standard Busted command delegates to unavailable WSL on this machine, so the
 local run used that alternate runner. CI runs Busted directly on Ubuntu.
@@ -44,7 +46,10 @@ variables before installation.
    are open; verify stale queued work does not reopen an unwanted window.
 6. Reset the copy and verify defaults and both window sizes return while the
    character's ignored list remains. Cancel a second reset and verify no change.
-7. Verify a profile selected by either character cannot be deleted. Select away
+7. With only one profile, verify Copy from and Delete unused profile are disabled
+   with small explanations below them. Create another profile and verify both
+   controls enable and the explanations disappear. Verify a profile selected by
+   either character cannot be deleted. Select away
    from the independent copy, delete it through confirmation and reload to
    verify it stays deleted. Verify the broker launcher still works with the
    minimap button hidden.
@@ -70,3 +75,8 @@ and generated `LocaleDocumentation.lua` and `ExpansionDocumentation.lua` for
 region APIs. Existing research also covers generated AddOns/System event
 definitions. Forever's generated `UnitDocumentation.lua` and menu implementation
 guide were additionally consulted for naming and dropdown behavior.
+
+The empty-action follow-up re-inspected the same four branch commits sequentially,
+consulting `Blizzard_Menu/DropdownButton.lua` (`OpenMenu` rejects disabled buttons)
+and `Blizzard_Menu/MenuTemplates.lua` (dropdown button-state handling). The Classic
+and Mainline menu templates were also inspected on Forever for native styling.

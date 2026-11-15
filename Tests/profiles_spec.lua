@@ -28,6 +28,44 @@ end
 
 for _, client in ipairs(Helpers.clients) do
     describe(client.name .. " profiles", function()
+        it("disables empty actions with explanations and refreshes availability as profiles change", function()
+            local env = Helpers.loadAddon({ client = client })
+            local dci = env.addon
+            local first = dci.Profiles:GetCurrentProfile()
+            local copy, delete = env.DCI_ProfileCopy, env.DCI_ProfileDelete
+            local copyHelp, deleteHelp = env.DCI_ProfileCopyHelp, env.DCI_ProfileDeleteHelp
+            assert.is_false(copy.enabled)
+            assert.is_false(delete.enabled)
+            assert.is_true(copyHelp:IsShown())
+            assert.equals("No other profiles are available to copy from.", copyHelp:GetText())
+            assert.is_true(deleteHelp:IsShown())
+            assert.equals("No unused profiles are available. Profiles in use cannot be deleted.", deleteHelp:GetText())
+
+            env.DCI_ProfileName:SetText("Second profile")
+            env.DCI_ProfileCreate:Fire("OnClick")
+            assert.is_true(copy.enabled)
+            assert.is_true(delete.enabled)
+            assert.is_false(copyHelp:IsShown())
+            assert.is_false(deleteHelp:IsShown())
+
+            -- Another character's selection prevents deletion, but remains a copy source.
+            dci.Profiles.sv.profileKeys.OtherCharacter = first
+            env.DCI_ProfileControls:Fire("OnShow")
+            assert.is_true(copy.enabled)
+            assert.is_false(delete.enabled)
+            assert.is_false(copyHelp:IsShown())
+            assert.is_true(deleteHelp:IsShown())
+            dci.Profiles.sv.profileKeys.OtherCharacter = nil
+            env.DCI_ProfileControls:Fire("OnShow")
+            assert.is_true(delete.enabled)
+            Choose(delete, first)
+            env.acceptPopup()
+            assert.is_false(copy.enabled)
+            assert.is_false(delete.enabled)
+            assert.is_true(copyHelp:IsShown())
+            assert.is_true(deleteHelp:IsShown())
+        end)
+
         it("migrates two characters independently, shares deliberate edits and keeps protections through copy/reset/reload", function()
             local legacyA = { MaxQuality = 0, HideSoulbound = false, IgnoredItems = { 10, 20 },
                 WindowPosition = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 80, y = -40 },

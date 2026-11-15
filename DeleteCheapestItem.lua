@@ -2238,7 +2238,7 @@ function DCI.CreateDCISettings()
     scrollFrame.ScrollBar.scrollStep = 27
 
     local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
-    ConfigFrame:SetSize(635, 970)
+    ConfigFrame:SetSize(635, 1000)
     scrollFrame:SetScrollChild(ConfigFrame)
     scrollFrame:HookScript("OnSizeChanged", function(self, width)
         ConfigFrame:SetWidth(math.max(635, width))
