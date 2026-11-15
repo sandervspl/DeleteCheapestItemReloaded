@@ -5,7 +5,7 @@
 --global namespace & localization table
 local addonName, DCI = ...
 local L = DCI.L
-DCI_DB = DCI_DB or {}
+DCI.db = {}
 
 -- Limit native bronze styling to Forever's interface range.
 local _, _, _, interfaceVersion = GetBuildInfo()
@@ -45,7 +45,7 @@ end
 local function UpdateFrameTheme(frame)
     if not isForever or not frame then return end
     if ellesmereSkin and type(ellesmereSkin.Shell) == "function" then return end
-    if DCI_DB.HideBronzeTheme then
+    if DCI.db.HideBronzeTheme then
         if not frame.RegularTheme then
             local regularTheme = CreateFrame("Frame", nil, frame, "BasicFrameTemplate")
             regularTheme:SetAllPoints(frame)
@@ -81,7 +81,7 @@ local function AddResizeGrip(frame, savedKey, minWidth, minHeight, defaultHeight
         local extra = ExtraWidth()
         self:SetResizeBounds(minWidth + extra, minHeight)
         if not self.DCI_Resizing then
-            local size = DCI_DB[savedKey] or {}
+            local size = DCI.db[savedKey] or {}
             self:SetSize(math.max(minWidth, size.width or minWidth) + extra,
                 math.max(minHeight, size.height or defaultHeight))
         end
@@ -92,10 +92,10 @@ local function AddResizeGrip(frame, savedKey, minWidth, minHeight, defaultHeight
         frame:StopMovingOrSizing()
         frame.DCI_Resizing = false
         local width, height = frame:GetSize()
-        DCI_DB[savedKey] = { width = math.max(minWidth, width - ExtraWidth()), height = height }
+        DCI.db[savedKey] = { width = math.max(minWidth, width - ExtraWidth()), height = height }
         if frame == DCIFrame then
             local point, _, relativePoint, x, y = frame:GetPoint(1)
-            DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+            DCI.db.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
         end
     end
     local grip = CreateFrame("Button", nil, frame, "PanelResizeButtonTemplate")
@@ -213,16 +213,16 @@ local function IsInventoryOpen()
 end
 
 local function ShouldOpenForLowSlots()
-    return DCI_DB.Auto_LowSlots and IsLootFrameOpen()
-        and DCI.CountFreeBagSlots() <= DCI_DB.LowSlotsThreshold
+    return DCI.db.Auto_LowSlots and IsLootFrameOpen()
+        and DCI.CountFreeBagSlots() <= DCI.db.LowSlotsThreshold
 end
 
 function DCI.QueueInventoryVisibilityUpdate()
-    if not DCI_DB.Auto_Inventory then return end
+    if not DCI.db.Auto_Inventory then return end
     local request = {}
     pendingBagVisibilityUpdate = request
     C_Timer.After(0, function()
-        if pendingBagVisibilityUpdate ~= request or not DCI_DB.Auto_Inventory then return end
+        if pendingBagVisibilityUpdate ~= request or not DCI.db.Auto_Inventory then return end
         pendingBagVisibilityUpdate = nil
         if IsInventoryOpen() then
             if not DCIFrame:IsShown() and not inventoryWindowDismissed then
@@ -266,7 +266,7 @@ DCI.ItemInfo = setmetatable({}, {
                 elseif property == "auctionPricePer" or property == "bestPricePer" or property == "bestPriceType" then
                     --lookup auction prices
                     local info = {}
-                    if DCI.UseAuctionPrices() and not (DCI_DB.AuctionPriceHidePoorQuality and DCI.ItemInfo[itemID].quality == 0) then
+                    if DCI.UseAuctionPrices() and not (DCI.db.AuctionPriceHidePoorQuality and DCI.ItemInfo[itemID].quality == 0) then
                         --auctions enabled and settings allow this quality 
                         DCI.DebugPrint(string.format("Item Info Lookup: DCI.GetAuctionPriceByItemID(%s)", itemID))
                         local vendorPricePer = DCI.ItemInfo[itemID].vendorPricePer
@@ -330,7 +330,7 @@ function DCI.DebugPrint(message, outputType)
     if outputType == nil then outputType = DCI.DEBUG_OUTPUT_INFO end
 
     --quit if below threshold setting
-    if outputType ~= DCI.DEBUG_OUTPUT_FORCED and (DCI_DB.DebugOutput == nil or outputType < DCI_DB.DebugOutput) then
+    if outputType ~= DCI.DEBUG_OUTPUT_FORCED and (DCI.DebugOutput == nil or outputType < DCI.DebugOutput) then
         return false
     end
 
@@ -348,16 +348,16 @@ end
 
 -- Focused visibility diagnostics, separate from the verbose item/price debug output.
 function DCI.TraceWindow(reason, force)
-    if not force and not DCI.WindowDebug and not DCI_DB.DebugOutput then return end
+    if not force and not DCI.WindowDebug and not DCI.DebugOutput then return end
     local function flag(value) return value and "yes" or "no" end
     DCI.DebugPrint(string.format(
         "[window %.2f] %s | shown=%s visible=%s context=%s lootShown=%s lootOpen=%s slots=%d free=%d combat=%s allowCombat=%s autoLoot=%s wait=%s interface=%d inventoryOpen=%s combinedShown=%s autoInventory=%s dismissed=%s bagCallbacks=%d",
         GetTime(), reason, flag(DCIFrame and DCIFrame:IsShown()), flag(DCIFrame and DCIFrame:IsVisible()),
         windowContextNames[DCI.windowContext] or "unset", flag(LootFrame and LootFrame:IsShown()),
         tostring(DCI.LootOpen), GetNumLootItems(), DCI.CountFreeBagSlots(), flag(UnitAffectingCombat("player")),
-        flag(DCI_DB.AllowInCombat), flag(DCI_DB.Auto_Loot), flag(DCI.InvErrWaitForLootFrame), interfaceVersion,
+        flag(DCI.db.AllowInCombat), flag(DCI.db.Auto_Loot), flag(DCI.InvErrWaitForLootFrame), interfaceVersion,
         flag(IsInventoryOpen()), flag(ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown()),
-        flag(DCI_DB.Auto_Inventory), flag(inventoryWindowDismissed), DCI.InventoryFrameCallbacks or 0),
+        flag(DCI.db.Auto_Inventory), flag(inventoryWindowDismissed), DCI.InventoryFrameCallbacks or 0),
         DCI.DEBUG_OUTPUT_FORCED)
 end
 
@@ -368,7 +368,7 @@ function DCI.HideWindow(reason)
 end
 
 function DCI.TryShowLootWindow(reason)
-    if not DCI_DB.Auto_Loot and not DCI_DB.Auto_LowSlots then
+    if not DCI.db.Auto_Loot and not DCI.db.Auto_LowSlots then
         DCI.TraceWindow(reason .. ": automatic looting disabled")
         return
     end
@@ -402,8 +402,8 @@ function DCI.HookLootFrame()
     LootFrame.DCIVisibilityHooked = true
     LootFrame:HookScript("OnShow", function()
         DCI.TraceWindow("LootFrame shown")
-        if (DCI_DB.Auto_Loot and (DCI.InvErrWaitForLootFrame or DCIFrame:IsShown()))
-            or DCI_DB.Auto_LowSlots then
+        if (DCI.db.Auto_Loot and (DCI.InvErrWaitForLootFrame or DCIFrame:IsShown()))
+            or DCI.db.Auto_LowSlots then
             DCI.QueueLootUpdate("LootFrame shown")
         end
     end)
@@ -452,7 +452,7 @@ end
 -- Presentation only: comparisons and destructive actions still use actual quantities.
 function DCI.GetStackValueString(total, quantity, maxStackSize)
     local current = DCI.GetMoneyStringTruncated(total)
-    if not DCI_DB.ShowFullStackValues or not maxStackSize or maxStackSize <= 1 or quantity <= 0 then
+    if not DCI.db.ShowFullStackValues or not maxStackSize or maxStackSize <= 1 or quantity <= 0 then
         return current
     end
     local full = math.floor(total / quantity * maxStackSize)
@@ -469,7 +469,7 @@ function DCI.UseAuctionPrices(forceEnabled)
     if DCI_AuctionSource == ERROR_CAPS then return false end
 
     --only check APIs if the setting is on (or forced) and we haven't already
-    if (DCI_DB.UseAuctionPrices or forceEnabled) and (not DCI_AuctionSource) then
+    if (DCI.db.UseAuctionPrices or forceEnabled) and (not DCI_AuctionSource) then
         --check for all supported APIs
         if (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID) then
             DCI_AuctionSource = "Auctionator"
@@ -485,7 +485,7 @@ function DCI.UseAuctionPrices(forceEnabled)
             DCI_AuctionSource = "auxForever"
         else
             --if no source API was found return false
-            DCI.DebugPrint("No auction API was found during global check", DCI_DB.UseAuctionPrices and DCI.DEBUG_OUTPUT_WARNING or DCI.DEBUG_OUTPUT_INFO)
+            DCI.DebugPrint("No auction API was found during global check", DCI.db.UseAuctionPrices and DCI.DEBUG_OUTPUT_WARNING or DCI.DEBUG_OUTPUT_INFO)
             DCI_AuctionSource = ERROR_CAPS 
             return false
         end
@@ -493,22 +493,22 @@ function DCI.UseAuctionPrices(forceEnabled)
     end
 
     --if we made it this far (api exists), then go by the global user setting
-    return (DCI_DB.UseAuctionPrices or forceEnabled) 
+    return (DCI.db.UseAuctionPrices or forceEnabled)
 end
 
 --function to save an item to the ignore list
 function DCI.SaveIgnoredItem(itemID)
-    if not DCI_DB.IgnoredItems then DCI_DB.IgnoredItems = {} end
+    if not DCI.Character.IgnoredItems then DCI.Character.IgnoredItems = {} end
     if DCI.IsItemIgnored(itemID) then return end
 
-    table.insert(DCI_DB.IgnoredItems, itemID)
+    table.insert(DCI.Character.IgnoredItems, itemID)
 
     DCI.DebugPrint(L["Ignoring item: "] .. (DCI.ItemInfo[itemID].name or tostring(itemID)), DCI.DEBUG_OUTPUT_FORCED)
     DCI.RefreshIgnoredItems()
 end
 
 function DCI.RemoveIgnoredItem(itemID)
-    local items = DCI_DB.IgnoredItems or {}
+    local items = DCI.Character.IgnoredItems or {}
     -- Older saved lists can contain duplicates; removing an item must unignore it fully.
     for i = #items, 1, -1 do
         if items[i] == itemID then table.remove(items, i) end
@@ -521,7 +521,7 @@ end
 function DCI.ResetIgnoredItem()
     DCI.DebugPrint(L["Resetting ignored items list."], DCI.DEBUG_OUTPUT_FORCED)
 
-    DCI_DB.IgnoredItems = {}
+    DCI.Character.IgnoredItems = {}
     DCI.RefreshIgnoredItems()
     DCI.UpdateDCIFrame(false)
 end
@@ -529,12 +529,12 @@ end
 --function to check if an itemID is in the saved variable ignored list
 function DCI.IsItemIgnored(itemID)
     --check if ignored list exists
-    if not DCI_DB.IgnoredItems then
+    if not DCI.Character.IgnoredItems then
         return false
     end
 
     -- Check if the itemID is in the list
-    for _, storedItemID in ipairs(DCI_DB.IgnoredItems) do
+    for _, storedItemID in ipairs(DCI.Character.IgnoredItems) do
         if storedItemID == itemID then
             return true  -- ItemID found in the list
         end
@@ -557,7 +557,7 @@ function DCI.RefreshIgnoredItems()
     local frame = DCI.IgnoredItemsFrame
     if not frame or not frame:IsShown() then return end
     local seen, count = {}, 0
-    for _, itemID in ipairs(DCI_DB.IgnoredItems or {}) do
+    for _, itemID in ipairs(DCI.Character.IgnoredItems or {}) do
         if not seen[itemID] then
             seen[itemID] = true
             count = count + 1
@@ -635,11 +635,19 @@ function DCI.ShowIgnoredItems()
         drag:SetAllPoints(title)
         drag:EnableMouse(true)
         frame:SetMovable(true)
+        local function FinishDrag()
+            if not frame.DCI_Dragging then return end
+            frame:StopMovingOrSizing()
+            frame.DCI_Dragging = false
+            local point, _, relativePoint, x, y = frame:GetPoint(1)
+            DCI.db.IgnoredWindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+        end
+        frame.DCI_FinishDrag = FinishDrag
         drag:SetScript("OnMouseDown", function(_, button)
-            if button == "LeftButton" then frame:StartMoving() end
+            if button == "LeftButton" then frame.DCI_Dragging = true; frame:StartMoving() end
         end)
-        drag:SetScript("OnMouseUp", function() frame:StopMovingOrSizing() end)
-        drag:SetScript("OnHide", function() frame:StopMovingOrSizing() end)
+        drag:SetScript("OnMouseUp", FinishDrag)
+        drag:SetScript("OnHide", FinishDrag)
         frame.empty = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         frame.empty:SetPoint("TOP", 0, -56)
         frame.inset = CreateFrame("Frame", nil, frame, "InsetFrameTemplate3")
@@ -665,8 +673,14 @@ function DCI.ShowIgnoredItems()
             DCI.RefreshIgnoredItems()
         end)
         frame:SetScript("OnHide", function() GameTooltip:Hide() end)
+        frame:HookScript("OnHide", FinishDrag)
         AddResizeGrip(frame, "IgnoredWindowSize", 310, 160, 286, LayoutIgnoredItems)
         SkinIgnoredItems()
+    end
+    if DCI.db.IgnoredWindowPosition then
+        local position = DCI.db.IgnoredWindowPosition
+        frame:ClearAllPoints()
+        frame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y)
     end
     frame:Show()
     DCI.RefreshIgnoredItems()
@@ -716,7 +730,7 @@ function DCI.GetAuctionPriceByItemID(itemID, itemLink)
     end
 
     --subtract 5% auction cut
-    if DCI_DB.SubtractAuctionCut and finalAuctionPrice then
+    if DCI.db.SubtractAuctionCut and finalAuctionPrice then
         finalAuctionPrice = finalAuctionPrice * 0.95
     end
 
@@ -795,8 +809,8 @@ function DCI.GetQuestRewardWindowItems()
         --  and not grey - based on setting
         if DCI.UseAuctionPrices()
             and itemID ~= nil
-            and DCI_DB.CompareByPrice ~= DCI.PRICE_TYPE_VENDOR
-            and (DCI_DB.AuctionPriceHidePoorQuality == false or questWindowItems[i].quality ~= 0) then
+            and DCI.db.CompareByPrice ~= DCI.PRICE_TYPE_VENDOR
+            and (DCI.db.AuctionPriceHidePoorQuality == false or questWindowItems[i].quality ~= 0) then
 
             -- auction enabled, get auction price info            
             questWindowItems[i].auctionPricePer = DCI.GetAuctionPriceForItem(itemID, questWindowItems[i].link)
@@ -863,8 +877,8 @@ function DCI.GetSortedLootWindowItems()
                         --  and not grey - based on setting 
                         if DCI.UseAuctionPrices()
                             and itemID ~= nil
-                            and DCI_DB.CompareByPrice ~= DCI.PRICE_TYPE_VENDOR
-                            and (DCI_DB.AuctionPriceHidePoorQuality == false or newLootWindowItem.quality ~= 0) then
+                            and DCI.db.CompareByPrice ~= DCI.PRICE_TYPE_VENDOR
+                            and (DCI.db.AuctionPriceHidePoorQuality == false or newLootWindowItem.quality ~= 0) then
 
                             -- auction enabled, get auction price info
                             newLootWindowItem.auctionPricePer = DCI.GetAuctionPriceForItem(itemID, lootSlotLink)
@@ -890,9 +904,9 @@ function DCI.GetSortedLootWindowItems()
                         end
 
                         --set sort price
-                        if DCI_DB.CompareByPrice == DCI.PRICE_TYPE_BEST and DCI.UseAuctionPrices() then
+                        if DCI.db.CompareByPrice == DCI.PRICE_TYPE_BEST and DCI.UseAuctionPrices() then
                             newLootWindowItem.sortPrice = newLootWindowItem.bestPriceTotal or newLootWindowItem.vendorPriceTotal or 0
-                        elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_AUCTION and DCI.UseAuctionPrices() then
+                        elseif DCI.db.CompareByPrice == DCI.PRICE_TYPE_AUCTION and DCI.UseAuctionPrices() then
                             newLootWindowItem.sortPrice = newLootWindowItem.auctionPriceTotal or newLootWindowItem.vendorPriceTotal or 0
                         else
                             newLootWindowItem.sortPrice = newLootWindowItem.vendorPriceTotal or 0
@@ -975,8 +989,8 @@ function DCI.GetSortedBagItems()
                     and newBagItem.quality ~= nil
                     and not DCI.IsItemIgnored(itemID)
                     and not newBagItem.isQuestItem
-                    and (not newBagItem.isSoulbound or not DCI_DB.HideSoulbound)
-                    and newBagItem.quality <= DCI_DB.MaxQuality) then
+                    and (not newBagItem.isSoulbound or not DCI.db.HideSoulbound)
+                    and newBagItem.quality <= DCI.db.MaxQuality) then
     	            -- Append info
     	            newBagItem.bag = bag
     	            newBagItem.slot = slot
@@ -990,7 +1004,7 @@ function DCI.GetSortedBagItems()
                     --  and the item is not soulbound
                     --  and not grey, based on setting
                     if DCI.UseAuctionPrices() and not newBagItem.isSoulbound 
-                        and (DCI_DB.AuctionPriceHidePoorQuality == false or newBagItem.quality ~= 0) then
+                        and (DCI.db.AuctionPriceHidePoorQuality == false or newBagItem.quality ~= 0) then
 
                         -- auction enabled, get auction price info
                         newBagItem.auctionPricePer = DCI.GetAuctionPriceForItem(itemID, newBagItem.link)
@@ -1012,9 +1026,9 @@ function DCI.GetSortedBagItems()
                     newBagItem.bestPriceTotal = newBagItem.quantity * newBagItem.bestPricePer
 
                     --set sort price
-                    if DCI_DB.CompareByPrice == DCI.PRICE_TYPE_BEST and DCI.UseAuctionPrices() then
+                    if DCI.db.CompareByPrice == DCI.PRICE_TYPE_BEST and DCI.UseAuctionPrices() then
                         newBagItem.sortPrice = newBagItem.bestPriceTotal or newBagItem.vendorPriceTotal or 0
-                    elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_AUCTION and DCI.UseAuctionPrices() then
+                    elseif DCI.db.CompareByPrice == DCI.PRICE_TYPE_AUCTION and DCI.UseAuctionPrices() then
                         newBagItem.sortPrice = newBagItem.auctionPriceTotal or newBagItem.vendorPriceTotal or 0
                     else
                         newBagItem.sortPrice = newBagItem.vendorPriceTotal or 0
@@ -1119,8 +1133,8 @@ function DCI.GetActionableBagItem(bag, slot, expected)
     local quality = item.quality or DCI.ItemInfo[item.itemID].quality
     if item.itemID == 6948 or DCI.IsItemIgnored(item.itemID)
         or (quest and (quest.isQuestItem or quest.questID ~= nil))
-        or (DCI_DB.HideSoulbound and bound)
-        or not quality or quality > DCI_DB.MaxQuality then return nil end
+        or (DCI.db.HideSoulbound and bound)
+        or not quality or quality > DCI.db.MaxQuality then return nil end
     return item, quality
 end
 
@@ -1137,7 +1151,9 @@ function DCI.ConfirmAndDeleteBagItem(bag, slot, expected, onDeleted)
     local snapshot = { itemID = item.itemID, hyperlink = item.hyperlink, stackCount = item.stackCount }
     local itemText = item.hyperlink:match("|h%[(.-)%]|h") or item.hyperlink
 
+    local generation = DCI.profileGeneration
     local function DeleteBagItemForReal()
+        if generation ~= DCI.profileGeneration then return false end
         if not DCI.GetActionableBagItem(bag, slot, snapshot) then return false end
         C_Container.PickupContainerItem(bag, slot)
         local cursorType, cursorItemID = GetCursorInfo()
@@ -1155,7 +1171,7 @@ function DCI.ConfirmAndDeleteBagItem(bag, slot, expected, onDeleted)
         return true
     end
 
-    if DCI_DB.ConfirmMinQuality and quality >= DCI_DB.ConfirmMinQuality then
+    if DCI.db.ConfirmMinQuality and quality >= DCI.db.ConfirmMinQuality then
         StaticPopupDialogs["DCI_RELOADED_DELETE_ITEM"] = {
             text = DELETE_ITEM .. "\n\n%s\n\n",
             button1 = YES,
@@ -1202,7 +1218,7 @@ local function CreateMainFrame()
             pendingLootUpdate = nil
             pendingBagVisibilityUpdate = nil
             bagWindowAutoOpened = false
-            if DCI_DB.Auto_Inventory and IsInventoryOpen() then inventoryWindowDismissed = true end
+            if DCI.db.Auto_Inventory and IsInventoryOpen() then inventoryWindowDismissed = true end
             if DCI.windowContext == WINDOW_CONTEXT_LOOT then lootWindowDismissed = true end
         end
     end)
@@ -1212,8 +1228,8 @@ end
 -- A saved position can be overridden while following the loot window.
 local function AnchorWindow(point, relativeTo, relativePoint, x, y)
     if DCI.WindowDragging or DCIFrame.DCI_Resizing then return end
-    if DCI_DB.WindowPosition and not (DCI_DB.FollowLootWindow and relativeTo == LootFrame) then
-        local position = DCI_DB.WindowPosition
+    if DCI.db.WindowPosition and not (DCI.db.FollowLootWindow and relativeTo == LootFrame) then
+        local position = DCI.db.WindowPosition
         point, relativeTo, relativePoint = position.point, UIParent, position.relativePoint
         x, y = position.x, position.y
     end
@@ -1227,7 +1243,7 @@ local function FinishWindowDrag()
     DCI.WindowDragging = false
     -- StartMoving detaches the frame from its context; save the screen anchor.
     local point, _, relativePoint, x, y = DCIFrame:GetPoint(1)
-    DCI_DB.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
+    DCI.db.WindowPosition = { point = point, relativePoint = relativePoint, x = x, y = y }
 end
 
 local function LayoutMainWindow(frame, width, height)
@@ -1258,8 +1274,8 @@ function DCI.CreateDCIFrame()
     else
         DCIFrame:SetPoint("LEFT", 10, 0) 
     end
-    if DCI_DB.WindowPosition then
-        local position = DCI_DB.WindowPosition
+    if DCI.db.WindowPosition then
+        local position = DCI.db.WindowPosition
         DCIFrame:ClearAllPoints()
         DCIFrame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y)
     end
@@ -1322,12 +1338,12 @@ function DCI.CreateDCIFrame()
         GameTooltip:AddLine(" ")
 
         local qualityOptions = {ITEM_QUALITY1_DESC, ITEM_QUALITY2_DESC, ITEM_QUALITY3_DESC, ITEM_QUALITY4_DESC, ITEM_QUALITY5_DESC} qualityOptions[0] = ITEM_QUALITY0_DESC
-        local confirmQuality = DCI_DB.ConfirmMinQuality and qualityOptions[DCI_DB.ConfirmMinQuality] or NEVER
-        local r,g,b,hex = C_Item.GetItemQualityColor(DCI_DB.MaxQuality)
-        GameTooltip:AddDoubleLine(L["Max item quality to display"], qualityOptions[DCI_DB.MaxQuality], 1.0, 0.82, 0.0, r, g, b)
+        local confirmQuality = DCI.db.ConfirmMinQuality and qualityOptions[DCI.db.ConfirmMinQuality] or NEVER
+        local r,g,b,hex = C_Item.GetItemQualityColor(DCI.db.MaxQuality)
+        GameTooltip:AddDoubleLine(L["Max item quality to display"], qualityOptions[DCI.db.MaxQuality], 1.0, 0.82, 0.0, r, g, b)
 
-        if DCI_DB.ConfirmMinQuality and DCI_DB.MaxQuality >= DCI_DB.ConfirmMinQuality then
-            r,g,b,hex = C_Item.GetItemQualityColor(DCI_DB.ConfirmMinQuality)
+        if DCI.db.ConfirmMinQuality and DCI.db.MaxQuality >= DCI.db.ConfirmMinQuality then
+            r,g,b,hex = C_Item.GetItemQualityColor(DCI.db.ConfirmMinQuality)
             GameTooltip:AddDoubleLine(L["Confirm delete if quality is at least"], confirmQuality, 1.0, 0.82, 0.0, r, g, b)
         else
             GameTooltip:AddDoubleLine(L["Confirm delete"], NEVER, 1.0, 0.82, 0.0, 0.9, 0.9, 0.9)
@@ -1342,7 +1358,7 @@ function DCI.CreateDCIFrame()
         GameTooltip:AddDoubleLine(L["Use auction prices"] .. (DCI.UseAuctionPrices() and (" "..L["from"]) or ""), AuctionSourceText, 1.0, 0.82, 0.0, 0.9, 0.9, 0.9)
         if DCI.UseAuctionPrices() then
             local compareByOptions = {L["Vendor Price"], L["Auction Price"], L["Best Price"]}
-            GameTooltip:AddDoubleLine(L["Compare item values by"], compareByOptions[DCI_DB.CompareByPrice], 1.0, 0.82, 0.0, 0.9, 0.9, 0.9)
+            GameTooltip:AddDoubleLine(L["Compare item values by"], compareByOptions[DCI.db.CompareByPrice], 1.0, 0.82, 0.0, 0.9, 0.9, 0.9)
         end
 
         GameTooltip:AddLine(" ")
@@ -1466,7 +1482,7 @@ function DCI.CreateDCIFrame()
         end
     end)
     AddResizeGrip(DCIFrame, "WindowSize", 290, 200, 240, LayoutMainWindow,
-        function() return DCI_DB.ShowFullStackValues and 180 or 0 end)
+        function() return DCI.db.ShowFullStackValues and 180 or 0 end)
     mainWidgetsReady = true
     SkinMainWindow()
 end
@@ -1491,18 +1507,18 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
         DCI_ScrollParent:SetVerticalScroll(0);
     end
 
-    if DCI_DB.HideWindowTitle then DCI_TitleText:Hide() else DCI_TitleText:Show() end
+    if DCI.db.HideWindowTitle then DCI_TitleText:Hide() else DCI_TitleText:Show() end
 
     DCIFrame:DCI_ApplySize()
     local extraWidth = DCIFrame:GetWidth() - 290
 
     --quit if player is in combat based on global AllowInCombat
-    if DCI_DB.AllowInCombat == false and UnitAffectingCombat("player") then
+    if DCI.db.AllowInCombat == false and UnitAffectingCombat("player") then
         DCI.DebugPrint("Hiding since player is in combat")
         DCI.HideWindow("combat")
 
         -- Remember even the first opening attempt, before a loot context was assigned.
-        if (DCI_DB.Auto_Loot or DCI_DB.Auto_LowSlots) and IsLootFrameOpen() then
+        if (DCI.db.Auto_Loot or DCI.db.Auto_LowSlots) and IsLootFrameOpen() then
             DCI.DebugPrint("Set wait flag to reappear when we leave combat")
             DCI.InvErrWaitForLootFrame = true
         end
@@ -1511,25 +1527,25 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     end
 
     --determine window context
-    if (DCI_DB.Auto_Loot or DCI_DB.Auto_LowSlots) and IsLootFrameOpen() then
+    if (DCI.db.Auto_Loot or DCI.db.Auto_LowSlots) and IsLootFrameOpen() then
         DCI.DebugPrint("Window context: Looting")
         DCI.windowContext = WINDOW_CONTEXT_LOOT
-    elseif DCI_DB.Auto_QuestAccept and DCI.QuestGaveError and QuestFrameDetailPanel and QuestFrameDetailPanel:IsShown() then
+    elseif DCI.db.Auto_QuestAccept and DCI.QuestGaveError and QuestFrameDetailPanel and QuestFrameDetailPanel:IsShown() then
         DCI.DebugPrint("Window context: Quest (accept)")
         DCI.windowContext = WINDOW_CONTEXT_QUESTACCEPT
-    elseif DCI_DB.Auto_QuestComplete and QuestFrameRewardPanel and QuestFrameRewardPanel:IsShown() then
+    elseif DCI.db.Auto_QuestComplete and QuestFrameRewardPanel and QuestFrameRewardPanel:IsShown() then
         DCI.DebugPrint("Window context: Quest (complete)")
         DCI.windowContext = WINDOW_CONTEXT_QUESTCOMPLETE
-    elseif DCI_DB.Auto_Trade and TradeFrame and TradeFrame:IsShown() then
+    elseif DCI.db.Auto_Trade and TradeFrame and TradeFrame:IsShown() then
         DCI.DebugPrint("Window context: Trade")
         DCI.windowContext = WINDOW_CONTEXT_TRADE
-    elseif DCI_DB.Auto_Mail and ((OpenMailFrame and OpenMailFrame:IsShown()) or (MailFrame and MailFrame:IsShown())) then
+    elseif DCI.db.Auto_Mail and ((OpenMailFrame and OpenMailFrame:IsShown()) or (MailFrame and MailFrame:IsShown())) then
         DCI.DebugPrint("Window context: Mail")
         DCI.windowContext = WINDOW_CONTEXT_MAIL
-    elseif DCI_DB.Auto_Vendor and MerchantFrame and MerchantFrame:IsShown() then
+    elseif DCI.db.Auto_Vendor and MerchantFrame and MerchantFrame:IsShown() then
         DCI.DebugPrint("Window context: Vendor")
         DCI.windowContext = WINDOW_CONTEXT_VENDOR
-    elseif DCI_DB.Auto_Roll and GroupLootContainer and GroupLootContainer:IsShown() then
+    elseif DCI.db.Auto_Roll and GroupLootContainer and GroupLootContainer:IsShown() then
         DCI.DebugPrint("Window context: Need/Greed Roll")
         DCI.windowContext = WINDOW_CONTEXT_ROLL
     else
@@ -1684,11 +1700,11 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
         if lootItems == nil or lootItems[itemIndexToLoot] == nil then
             DCI.DebugPrint("Something went wrong (Item to loot is nil during update in loot context)", DCI.DEBUG_OUTPUT_WARNING)
-        elseif DCI_DB.CompareByPrice == 1 or not DCI.UseAuctionPrices() then
+        elseif DCI.db.CompareByPrice == 1 or not DCI.UseAuctionPrices() then
             totalValueToReceieve = lootItems[itemIndexToLoot].vendorPriceTotal or 0
-        elseif DCI_DB.CompareByPrice == 2 then
+        elseif DCI.db.CompareByPrice == 2 then
             totalValueToReceieve = lootItems[itemIndexToLoot].auctionPriceTotal or lootItems[itemIndexToLoot].vendorPriceTotal or 0
-        elseif DCI_DB.CompareByPrice == 3 then
+        elseif DCI.db.CompareByPrice == 3 then
             totalValueToReceieve = lootItems[itemIndexToLoot].bestPriceTotal or lootItems[itemIndexToLoot].vendorPriceTotal or 0
         end
 
@@ -1745,10 +1761,10 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             --item icon texture + quantity
             ItemIconTexture:SetTexture(C_Item.GetItemIconByID(bagItem.itemID))
             local count = tostring(bagItem.quantity)
-            if DCI_DB.ShowFullStackValues and maxStackSize and maxStackSize > 1 then
+            if DCI.db.ShowFullStackValues and maxStackSize and maxStackSize > 1 then
                 count = count .. "|cff888888/" .. maxStackSize .. "|r"
             end
-            ItemIconCountText:SetFontObject(DCI_DB.ShowFullStackValues and "GameFontNormalSmall" or "NumberFontNormal")
+            ItemIconCountText:SetFontObject(DCI.db.ShowFullStackValues and "GameFontNormalSmall" or "NumberFontNormal")
             ItemIconCountText:SetText(count)
 
             --grey out poor quality
@@ -1764,15 +1780,15 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             ItemGlowTexture:Hide()
             if numItemsToReceive == 1 and totalValueToReceieve > 0 and lootItems and itemIndexToLoot and not lootItems[itemIndexToLoot].isQuestItem then
                 local bagItemComparePrice = 0
-                if DCI_DB.CompareByPrice == 1 or not DCI.UseAuctionPrices() then
+                if DCI.db.CompareByPrice == 1 or not DCI.UseAuctionPrices() then
                     bagItemComparePrice = bagItem.vendorPriceTotal
-                elseif DCI_DB.CompareByPrice == 2 then
+                elseif DCI.db.CompareByPrice == 2 then
                     if bagItem.auctionPriceTotal ~= nil then
                         bagItemComparePrice = bagItem.auctionPriceTotal
                     else
                         bagItemComparePrice = bagItem.vendorPriceTotal
                     end
-                elseif DCI_DB.CompareByPrice == 3 then
+                elseif DCI.db.CompareByPrice == 3 then
                     bagItemComparePrice = bagItem.bestPriceTotal
                 end
 
@@ -1783,7 +1799,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             end
 
             --display item values
-            if DCI.UseAuctionPrices() and DCI_DB.ShowBothPrices then
+            if DCI.UseAuctionPrices() and DCI.db.ShowBothPrices then
                 --top line vendor price
                 ItemInfoTopLeft:SetText(L["Vendor"])
                 ItemInfoTopRight:SetText(valueString(bagItem.vendorPriceTotal))
@@ -1794,7 +1810,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 if bagItem.auctionPriceTotal and bagItem.auctionPriceTotal > 0 then
                     ItemInfoBottomRight:SetText(valueString(bagItem.auctionPriceTotal))
                     --grey auction price if cheaper than vendor based on global AuctionGreyUnderVendor
-                    if DCI_DB.AuctionGreyUnderVendor and bagItem.auctionPriceTotal <= bagItem.vendorPriceTotal then
+                    if DCI.db.AuctionGreyUnderVendor and bagItem.auctionPriceTotal <= bagItem.vendorPriceTotal then
                         ItemInfoBottomLeft:SetTextColor(0.3,0.3,0.3)
                         ItemInfoBottomRight:SetTextColor(0.3,0.3,0.3)
                     else
@@ -1813,11 +1829,11 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 ItemInfoTopRight:Hide()
 
                 --bottom line price
-                if DCI_DB.CompareByPrice == DCI.PRICE_TYPE_VENDOR then
+                if DCI.db.CompareByPrice == DCI.PRICE_TYPE_VENDOR then
                     --use vendor price
                     ItemInfoBottomLeft:SetText(L["Vendor"])
                     ItemInfoBottomRight:SetText(valueString(bagItem.vendorPriceTotal))
-                elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_AUCTION then
+                elseif DCI.db.CompareByPrice == DCI.PRICE_TYPE_AUCTION then
                     --use auction price IF its available
                     if bagItem.auctionPriceTotal then
                         ItemInfoBottomLeft:SetText(L["Auction"])
@@ -1826,7 +1842,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                         ItemInfoBottomLeft:SetText(L["Vendor"])
                         ItemInfoBottomRight:SetText(valueString(bagItem.vendorPriceTotal))
                     end
-                elseif DCI_DB.CompareByPrice == DCI.PRICE_TYPE_BEST then
+                elseif DCI.db.CompareByPrice == DCI.PRICE_TYPE_BEST then
                     --use best price
                     if bagItem.auctionPriceTotal and bagItem.auctionPriceTotal > bagItem.vendorPriceTotal then
                         ItemInfoBottomLeft:SetText(L["Auction"])
@@ -1866,7 +1882,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
             --change DeleteButton to SELL instead of DELETE at a vendor, if item is vendorable
             local deleteButton_TooltipText, deleteButton_ButtonText, deleteButton_Function
-            if DCI_DB.Auto_Vendor and DCI.windowContext == WINDOW_CONTEXT_VENDOR and bagItem.vendorPriceTotal and bagItem.vendorPriceTotal > 0 then
+            if DCI.db.Auto_Vendor and DCI.windowContext == WINDOW_CONTEXT_VENDOR and bagItem.vendorPriceTotal and bagItem.vendorPriceTotal > 0 then
                 deleteButton_ButtonText = L['Sell']
                 deleteButton_TooltipText = L["Click to SELL this item"]
                 deleteButton_Function = function(bag, slot) DCI.SellBagItem(bag, slot, bagItem) end
@@ -1876,7 +1892,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 deleteButton_Function = function(bag, slot)
                     local selectedLootSlot = LootFrame and LootFrame.DCI_LootIndexUserClick
                     DCI.ConfirmAndDeleteBagItem(bag, slot, bagItem, function()
-                        if DCI_DB.Auto_Loot and DCI.windowContext == WINDOW_CONTEXT_LOOT
+                        if DCI.db.Auto_Loot and DCI.windowContext == WINDOW_CONTEXT_LOOT
                             and IsLootFrameOpen() then
                             DCI.TakeItemsFromLootWindow(selectedLootSlot)
                             LootFrame.DCI_LootIndexUserClick = nil
@@ -2060,12 +2076,53 @@ function DCI.ToggleDCIFrame()
         pendingLootUpdate = nil
         pendingBagVisibilityUpdate = nil
         bagWindowAutoOpened = false
-        if DCI_DB.Auto_Inventory and IsInventoryOpen() then inventoryWindowDismissed = true end
+        if DCI.db.Auto_Inventory and IsInventoryOpen() then inventoryWindowDismissed = true end
         if DCI.windowContext == WINDOW_CONTEXT_LOOT then lootWindowDismissed = true end
         DCI.HideWindow("/dci toggle")
     else
         DCI.UpdateDCIFrame()
     end
+end
+
+-- Finish writes to the old profile before changing its table reference.
+function DCI.PrepareProfileChange()
+    FinishWindowDrag()
+    for _, frame in pairs({ main = DCIFrame, ignored = DCI.IgnoredItemsFrame }) do
+        if frame.DCI_FinishDrag then frame.DCI_FinishDrag() end
+        if frame.DCI_Resizing and frame.ResizeGrip then
+            frame.ResizeGrip:GetScript("OnMouseUp")()
+        end
+    end
+    local icon = LibStub("LibDBIcon-1.0"):GetMinimapButton(addonName)
+    if icon and icon:GetScript("OnUpdate") and icon:GetScript("OnDragStop") then
+        icon:GetScript("OnDragStop")(icon)
+    end
+    DCI.profileGeneration = (DCI.profileGeneration or 0) + 1
+    pendingLootUpdate, pendingBagVisibilityUpdate = nil, nil
+    bagWindowAutoOpened, inventoryWindowDismissed, lootWindowDismissed = false, false, false
+    DCI.InvErrWaitForLootFrame = false
+    StaticPopup_Hide("DCI_RELOADED_DELETE_ITEM")
+    StaticPopup_Hide("DCI_PROFILE_ACTION")
+end
+
+function DCI.ApplyProfile()
+    DCI.InitializeSavedVariables()
+    for key in pairs(DCI.ItemInfo) do DCI.ItemInfo[key] = nil end
+    if DCI.IgnoredItemsFrame then
+        local frame = DCI.IgnoredItemsFrame
+        local position = DCI.db.IgnoredWindowPosition
+        frame:ClearAllPoints()
+        if position then
+            frame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y)
+        else
+            frame:SetPoint("CENTER")
+        end
+    end
+    DCI.RegisterFrameEvents()
+    DCI.RefreshIgnoredItems()
+    DCI.UpdateDCIFrame(false)
+    if DCI_ConfigPanel then DCI.UpdateDCISettings() end
+    if DCI.RefreshProfileControls then DCI.RefreshProfileControls() end
 end
 
 --function to create settings panel
@@ -2087,11 +2144,11 @@ function DCI.CreateDCISettings()
 
     --local function to create settings checkbox
     local function CreateConfigPanelCheckbox(ParentFrame, OffsetX, OffsetY, CheckboxVariable, CheckboxText, CheckboxFunction)
-        if not CheckboxFunction then CheckboxFunction = function(self) DCI_DB[CheckboxVariable] = self:GetChecked() DCI.UpdateDCIFrame(false) DCI.RegisterFrameEvents() end end
+        if not CheckboxFunction then CheckboxFunction = function(self) DCI.db[CheckboxVariable] = self:GetChecked() DCI.UpdateDCIFrame(false) DCI.RegisterFrameEvents() end end
 
         local checkboxFrame = CreateFrame("CheckButton", "DCI_Config_Checkbox_"..CheckboxVariable, ParentFrame, "UICheckButtonTemplate")
         checkboxFrame:SetPoint("TOPLEFT", ParentFrame, "TOPLEFT", OffsetX+7, OffsetY-7)
-        checkboxFrame:SetChecked(DCI_DB[CheckboxVariable] or false)
+        checkboxFrame:SetChecked(DCI.db[CheckboxVariable] or false)
         checkboxFrame:HookScript("OnClick", CheckboxFunction)
         checkboxFrame.DCI_FrameType = DCI.FRAME_CHECKBOX
         checkboxFrame.DCI_UpdateVariable = CheckboxVariable
@@ -2122,12 +2179,12 @@ function DCI.CreateDCISettings()
         dropdownFrame:SetupMenu(function(dropdown, rootDescription)
             for i = 1,#DropdownChoices do
                 rootDescription:CreateButton(DropdownChoices[i], function()
-                    DCI_DB[DropdownVariable] = DropdownValues[i]
+                    DCI.db[DropdownVariable] = DropdownValues[i]
                     dropdownFrame:SetDefaultText(DropdownChoices[i])
                     DCI.UpdateDCIFrame(false)
 
                     --hack to disable Grey Auction Price setting based on ShowBothPrices
-                    if DCI_DB.ShowBothPrices then
+                    if DCI.db.ShowBothPrices then
                         DCI_Config_Checkbox_AuctionGreyUnderVendor:Enable()
                     else
                         DCI_Config_Checkbox_AuctionGreyUnderVendor:Disable()
@@ -2141,7 +2198,7 @@ function DCI.CreateDCISettings()
             DCI.DebugPrint("DCI_SetDefaultText() ")
             local choiceIndex = 1
             for i = 1,#DropdownChoices do
-                if DropdownValues[i] == DCI_DB[DropdownVariable] then
+                if DropdownValues[i] == DCI.db[DropdownVariable] then
                     choiceIndex = i
                     break
                 end
@@ -2181,7 +2238,7 @@ function DCI.CreateDCISettings()
     scrollFrame.ScrollBar.scrollStep = 27
 
     local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
-    ConfigFrame:SetSize(635, 660)
+    ConfigFrame:SetSize(635, 1000)
     scrollFrame:SetScrollChild(ConfigFrame)
     scrollFrame:HookScript("OnSizeChanged", function(self, width)
         ConfigFrame:SetWidth(math.max(635, width))
@@ -2201,10 +2258,8 @@ function DCI.CreateDCISettings()
     --buttons to manage ignored items, show test window, reset settings
     local Button_IgnoredItems = CreateConfigPanelButton(ConfigFrame, 16, -42, L["Ignored Items"], DCI.ShowIgnoredItems)
     local Button_TestWindow = CreateConfigPanelButton(ConfigFrame, 16+170, -42, L["Open Test Window"], DCI.ToggleDCIFrame)
-    local Button_DefaultSettings = CreateConfigPanelButton(ConfigFrame, 16+170*2, -42, L["Reset Default Settings"], function()
-        DCI.InitializeSavedVariables(true)
-        DCI.RegisterFrameEvents()
-        DCI.UpdateDCISettings()
+    local Button_DefaultSettings = CreateConfigPanelButton(ConfigFrame, 16+170*2, -42, L["Reset Profile"], function()
+        DCI.ConfirmProfileAction("reset")
     end)
 
     ---------------------------
@@ -2222,7 +2277,7 @@ function DCI.CreateDCISettings()
     -- This checkbox uses the library's nested saved settings rather than a flat key.
     hideMinimap.DCI_UpdateVariable = nil
     local function UpdateMinimapCheckbox()
-        hideMinimap:SetChecked(DCI_DB.Minimap.hide)
+        hideMinimap:SetChecked(DCI.db.Minimap.hide)
     end
     ConfigFrame:HookScript("OnShow", UpdateMinimapCheckbox)
     UpdateMinimapCheckbox()
@@ -2244,10 +2299,10 @@ function DCI.CreateDCISettings()
 
     --checkbox for AllowInCombat & debug
     local Checkbox_AllowInCombat = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 3*-27, "AllowInCombat", L["Allow window in combat"])
-    local Checkbox_DebugOutput = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 4*-27, "DebugOutput", L["Show Debug Output"], function(self) DCI_DB.DebugOutput = self:GetChecked() and 1 or nil end)
+    local Checkbox_DebugOutput = CreateConfigPanelCheckbox(Section_WindowSettings, 0, 4*-27, "DebugOutput", L["Show Debug Output"], function(self) DCI.DebugOutput = self:GetChecked() and 1 or nil end)
     if isForever then
         CreateConfigPanelCheckbox(Section_WindowSettings, 250, 4*-27, "HideBronzeTheme", L["Hide bronze theme and borders"], function(self)
-            DCI_DB.HideBronzeTheme = self:GetChecked()
+            DCI.db.HideBronzeTheme = self:GetChecked()
             DCI.UpdateWindowTheme()
         end)
     end
@@ -2273,7 +2328,7 @@ function DCI.CreateDCISettings()
     LowSlotsThreshold:SetNumeric(true)
     LowSlotsThreshold:SetMaxLetters(3)
     LowSlotsThreshold:SetAutoFocus(false)
-    LowSlotsThreshold:SetText(tostring(DCI_DB.LowSlotsThreshold))
+    LowSlotsThreshold:SetText(tostring(DCI.db.LowSlotsThreshold))
     LowSlotsThreshold:SetCursorPosition(0)
     -- Reset horizontal scrolling once the field has a visible layout. Blizzard's
     -- auction quantity input needs the same fix when setting text before showing.
@@ -2283,19 +2338,19 @@ function DCI.CreateDCISettings()
     LowSlotsThreshold:HookScript("OnMouseDown", function(self) self:SetFocus() end)
     LowSlotsThreshold:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     LowSlotsThreshold:SetScript("OnEscapePressed", function(self)
-        self:SetText(tostring(DCI_DB.LowSlotsThreshold))
+        self:SetText(tostring(DCI.db.LowSlotsThreshold))
         self:ClearFocus()
     end)
     LowSlotsThreshold:SetScript("OnTextChanged", function(self, userInput)
         if not userInput then return end
         local value = tonumber(self:GetText())
-        if value then DCI_DB.LowSlotsThreshold = math.max(0, math.min(999, value)) end
+        if value then DCI.db.LowSlotsThreshold = math.max(0, math.min(999, value)) end
     end)
     -- Preserve InputBoxTemplate's handler that clears the selection highlight.
     LowSlotsThreshold:HookScript("OnEditFocusLost", function(self)
         local enteredValue = tonumber(self:GetText())
         local value = math.max(0, math.min(999, enteredValue or 0))
-        DCI_DB.LowSlotsThreshold = value
+        DCI.db.LowSlotsThreshold = value
         if enteredValue ~= value then self:SetText(tostring(value)) end
         self:SetCursorPosition(0)
     end)
@@ -2334,7 +2389,7 @@ function DCI.CreateDCISettings()
 
     --checkbox for AuctionGreyUnderVendor
     local Checkbox_AuctionGrey = CreateConfigPanelCheckbox(auctionSettingsDisableFrame, 0, 3*-27, "AuctionGreyUnderVendor", L["Grey out auction price if it's less than the vendor price (when both are shown)"])
-    if DCI_DB.ShowBothPrices then
+    if DCI.db.ShowBothPrices then
         Checkbox_AuctionGrey:Enable()
     else
         Checkbox_AuctionGrey:Disable()
@@ -2347,7 +2402,7 @@ function DCI.CreateDCISettings()
             for k in pairs(DCI.ItemInfo) do
                 DCI.ItemInfo[k] = nil
             end
-            DCI_DB.SubtractAuctionCut = self:GetChecked()
+            DCI.db.SubtractAuctionCut = self:GetChecked()
             DCI.UpdateDCIFrame(false)
         end
     )
@@ -2407,7 +2462,7 @@ function DCI.CreateDCISettings()
         end
 
         --override auction grey checkbox based on bothprices setting
-        if disableAuctionSettings == false and DCI_DB.ShowBothPrices then
+        if disableAuctionSettings == false and DCI.db.ShowBothPrices then
             DCI_Config_Checkbox_AuctionGreyUnderVendor:Enable()
         else
             DCI_Config_Checkbox_AuctionGreyUnderVendor:Disable()
@@ -2415,6 +2470,7 @@ function DCI.CreateDCISettings()
     end
     ConfigFrame:HookScript("OnShow", function(self) UpdateAuctionFrameState() end)
     Checkbox_UseAuctionPrices:HookScript("OnClick", function(self) UpdateAuctionFrameState() end)
+    DCI.CreateProfileControls(ConfigFrame)
     settingsWidgetsReady = true
     SkinSettings()
 end
@@ -2427,13 +2483,13 @@ function DCI.UpdateDCISettings()
             for _, grandchildFrame in ipairs({childFrame:GetChildren()}) do
                 if grandchildFrame.DCI_UpdateVariable then
                     if grandchildFrame.DCI_FrameType == DCI.FRAME_CHECKBOX then
-                        grandchildFrame:SetChecked(DCI_DB[grandchildFrame.DCI_UpdateVariable])
+                        grandchildFrame:SetChecked(grandchildFrame.DCI_UpdateVariable == "DebugOutput" and DCI.DebugOutput or DCI.db[grandchildFrame.DCI_UpdateVariable])
                     elseif grandchildFrame.DCI_FrameType == DCI.FRAME_DROPDOWN then
                         local frameName = grandchildFrame:GetName()
-                        local updateValue = DCI_DB[grandchildFrame.DCI_UpdateVariable]
+                        local updateValue = DCI.db[grandchildFrame.DCI_UpdateVariable]
                         grandchildFrame:DCI_SetDefaultText()
                     elseif grandchildFrame.DCI_FrameType == DCI.FRAME_EDITBOX then
-                        grandchildFrame:SetText(tostring(DCI_DB[grandchildFrame.DCI_UpdateVariable]))
+                        grandchildFrame:SetText(tostring(DCI.db[grandchildFrame.DCI_UpdateVariable]))
                         grandchildFrame:SetCursorPosition(0)
                     end
                 end
@@ -2446,64 +2502,37 @@ end
 
 --function to load/initialize saved vars
 function DCI.InitializeSavedVariables(resetDefaults)
-    resetDefaults = resetDefaults or false --default false
-
-    DCI.DebugPrint("Initializing saved variables")
-    if resetDefaults then
-        --reset to default if flag is set
-        DCI.DebugPrint(L["Restoring settings to default"], DCI.DEBUG_OUTPUT_FORCED)
-        DCI_DB = {}
-    elseif not DCI_DB or next(DCI_DB) == nil then
-        --if settings are empty, try to load old version of settings for backwards compaibility
-        DCI.DebugPrint("No current settings found, trying backwards compatibility")
-        DCI_DB = {}
-        if DCI_IgnoredItems ~= nil then DCI_DB.IgnoredItems = DCI_IgnoredItems end
-        if DCI_UseAuctionPrices ~= nil then DCI_DB.UseAuctionPrices = DCI_UseAuctionPrices end
-        if DCI_SubtractAuctionCut ~= nil then DCI_DB.SubtractAuctionCut = DCI_SubtractAuctionCut end
-        if DCI_AuctionPriceHidePoorQuality ~= nil then DCI_DB.AuctionPriceHidePoorQuality = DCI_AuctionPriceHidePoorQuality end
-        if DCI_AuctionGreyUnderVendor ~= nil then DCI_DB.AuctionGreyUnderVendor = DCI_AuctionGreyUnderVendor end
-        if DCI_HideSoulbound ~= nil then DCI_DB.HideSoulbound = DCI_HideSoulbound end
-        if DCI_AllowInCombat ~= nil then DCI_DB.AllowInCombat = DCI_AllowInCombat end
-        if DCI_MaxQuality ~= nil then DCI_DB.MaxQuality = DCI_MaxQuality end
-        if DCI_CompareByPrice ~= nil then DCI_DB.CompareByPrice = DCI_CompareByPrice end
-        if DCI_ShowBothPrices ~= nil then DCI_DB.ShowBothPrices = DCI_ShowBothPrices end
-        if DCI_ConfirmMinQuality ~= nil then DCI_DB.ConfirmMinQuality = DCI_ConfirmMinQuality end
-    end
+    if resetDefaults then return DCI.ResetProfile() end
+    DCI.InitializeProfiles()
 
     --set default values
-    if DCI_DB.IgnoredItems == nil then DCI_DB.IgnoredItems = {} end
-    if DCI_DB.UseAuctionPrices == nil then DCI_DB.UseAuctionPrices = true end
-    if DCI_DB.SubtractAuctionCut == nil then DCI_DB.SubtractAuctionCut = true end
-    if DCI_DB.AuctionPriceHidePoorQuality == nil then DCI_DB.AuctionPriceHidePoorQuality = true end
-    if DCI_DB.AuctionGreyUnderVendor == nil then DCI_DB.AuctionGreyUnderVendor = true end
-    if DCI_DB.HideSoulbound == nil then DCI_DB.HideSoulbound = true end
-    if DCI_DB.AllowInCombat == nil then DCI_DB.AllowInCombat = true end
-    if isForever and DCI_DB.HideBronzeTheme == nil then DCI_DB.HideBronzeTheme = false end
-    if DCI_DB.MaxQuality == nil then DCI_DB.MaxQuality = 2 end --default to uncommon
-    if DCI_DB.CompareByPrice == nil then DCI_DB.CompareByPrice = DCI.PRICE_TYPE_BEST end
-    if DCI_DB.FollowLootWindow == nil then DCI_DB.FollowLootWindow = false end
-    if DCI_DB.HideWindowTitle == nil then DCI_DB.HideWindowTitle = false end
-    if DCI_DB.ShowFullStackValues == nil then DCI_DB.ShowFullStackValues = false end
-    if DCI_DB.ShowBothPrices == nil then DCI_DB.ShowBothPrices = false end
-    if DCI_DB.ConfirmMinQuality == nil then DCI_DB.ConfirmMinQuality = nil end --default to nil which represents never
-    if DCI_DB.Auto_Loot == nil then DCI_DB.Auto_Loot = true end
-    if DCI_DB.Auto_Inventory == nil then DCI_DB.Auto_Inventory = false end
-    if DCI_DB.Auto_LowSlots == nil then DCI_DB.Auto_LowSlots = false end
-    DCI_DB.LowSlotsThreshold = math.max(0, math.min(999, math.floor(tonumber(DCI_DB.LowSlotsThreshold) or 0)))
-    if DCI_DB.Auto_Vendor == nil then DCI_DB.Auto_Vendor = true end
-    if DCI_DB.Auto_Trade == nil then DCI_DB.Auto_Trade = true end
-    if DCI_DB.Auto_Mail == nil then DCI_DB.Auto_Mail = true end
-    if DCI_DB.Auto_QuestAccept == nil then DCI_DB.Auto_QuestAccept = true end
-    if DCI_DB.Auto_QuestComplete == nil then DCI_DB.Auto_QuestComplete = true end
-    if DCI_DB.Auto_Roll == nil then DCI_DB.Auto_Roll = true end
+    if DCI.db.UseAuctionPrices == nil then DCI.db.UseAuctionPrices = true end
+    if DCI.db.SubtractAuctionCut == nil then DCI.db.SubtractAuctionCut = true end
+    if DCI.db.AuctionPriceHidePoorQuality == nil then DCI.db.AuctionPriceHidePoorQuality = true end
+    if DCI.db.AuctionGreyUnderVendor == nil then DCI.db.AuctionGreyUnderVendor = true end
+    if DCI.db.HideSoulbound == nil then DCI.db.HideSoulbound = true end
+    if DCI.db.AllowInCombat == nil then DCI.db.AllowInCombat = true end
+    if isForever and DCI.db.HideBronzeTheme == nil then DCI.db.HideBronzeTheme = false end
+    if DCI.db.MaxQuality == nil then DCI.db.MaxQuality = 2 end --default to uncommon
+    if DCI.db.CompareByPrice == nil then DCI.db.CompareByPrice = DCI.PRICE_TYPE_BEST end
+    if DCI.db.FollowLootWindow == nil then DCI.db.FollowLootWindow = false end
+    if DCI.db.HideWindowTitle == nil then DCI.db.HideWindowTitle = false end
+    if DCI.db.ShowFullStackValues == nil then DCI.db.ShowFullStackValues = false end
+    if DCI.db.ShowBothPrices == nil then DCI.db.ShowBothPrices = false end
+    if DCI.db.ConfirmMinQuality == nil then DCI.db.ConfirmMinQuality = nil end --default to nil which represents never
+    if DCI.db.Auto_Loot == nil then DCI.db.Auto_Loot = true end
+    if DCI.db.Auto_Inventory == nil then DCI.db.Auto_Inventory = false end
+    if DCI.db.Auto_LowSlots == nil then DCI.db.Auto_LowSlots = false end
+    DCI.db.LowSlotsThreshold = math.max(0, math.min(999, math.floor(tonumber(DCI.db.LowSlotsThreshold) or 0)))
+    if DCI.db.Auto_Vendor == nil then DCI.db.Auto_Vendor = true end
+    if DCI.db.Auto_Trade == nil then DCI.db.Auto_Trade = true end
+    if DCI.db.Auto_Mail == nil then DCI.db.Auto_Mail = true end
+    if DCI.db.Auto_QuestAccept == nil then DCI.db.Auto_QuestAccept = true end
+    if DCI.db.Auto_QuestComplete == nil then DCI.db.Auto_QuestComplete = true end
+    if DCI.db.Auto_Roll == nil then DCI.db.Auto_Roll = true end
 
     DCI.InitializeBroker()
 
-    --on every load reset to no debug
-    if DCI_DB.DebugOutput then
-        DCI.DebugPrint("Automatically disabling this debug output.")
-        DCI_DB.DebugOutput = nil
-    end
     DCI.UpdateWindowTheme()
     if DCIFrame.DCI_ApplySize then DCIFrame:DCI_ApplySize() end
     if DCI.IgnoredItemsFrame then DCI.IgnoredItemsFrame:DCI_ApplySize() end
@@ -2516,7 +2545,7 @@ function DCI.RegisterFrameEvents()
     DCIFrame:RegisterEvent("BAG_UPDATE")
     DCIFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
-    if DCI_DB.Auto_Inventory then
+    if DCI.db.Auto_Inventory then
         DCIFrame:RegisterEvent("BAG_OPEN")
         DCIFrame:RegisterEvent("BAG_CLOSED")
         DCI.QueueInventoryVisibilityUpdate()
@@ -2531,13 +2560,13 @@ function DCI.RegisterFrameEvents()
         inventoryWindowDismissed = false
     end
 
-    if DCI_DB.Auto_Loot or DCI_DB.Auto_Vendor or DCI_DB.Auto_QuestAccept or DCI_DB.Auto_Mail or DCI.WindowDebug then
+    if DCI.db.Auto_Loot or DCI.db.Auto_Vendor or DCI.db.Auto_QuestAccept or DCI.db.Auto_Mail or DCI.WindowDebug then
         DCIFrame:RegisterEvent("UI_ERROR_MESSAGE")
     else
         DCIFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     end
 
-    if not DCI_DB.AllowInCombat or DCI.WindowDebug then
+    if not DCI.db.AllowInCombat or DCI.WindowDebug then
         DCIFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
         DCIFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     else
@@ -2545,19 +2574,19 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
 
-    if DCI_DB.Auto_Loot or DCI_DB.Auto_LowSlots or DCI.WindowDebug then
+    if DCI.db.Auto_Loot or DCI.db.Auto_LowSlots or DCI.WindowDebug then
         DCIFrame:RegisterEvent("LOOT_CLOSED")
         DCIFrame:RegisterEvent("LOOT_OPENED")
     else
         DCIFrame:UnregisterEvent("LOOT_CLOSED")
         DCIFrame:UnregisterEvent("LOOT_OPENED")
     end
-    if not DCI_DB.Auto_Loot and not DCI_DB.Auto_LowSlots then
+    if not DCI.db.Auto_Loot and not DCI.db.Auto_LowSlots then
         DCI.InvErrWaitForLootFrame = false
         pendingLootUpdate = nil
     end
 
-    if DCI_DB.Auto_Trade then
+    if DCI.db.Auto_Trade then
         DCIFrame:RegisterEvent("TRADE_SHOW")
         DCIFrame:RegisterEvent("TRADE_TARGET_ITEM_CHANGED")
     else
@@ -2565,7 +2594,7 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("TRADE_TARGET_ITEM_CHANGED")
     end
 
-    if DCI_DB.Auto_Mail then
+    if DCI.db.Auto_Mail then
         DCIFrame:RegisterEvent("MAIL_FAILED")
         DCIFrame:RegisterEvent("MAIL_SHOW")
     else
@@ -2573,7 +2602,7 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("MAIL_SHOW")
     end
 
-    if DCI_DB.Auto_QuestAccept then
+    if DCI.db.Auto_QuestAccept then
         DCIFrame:RegisterEvent("QUEST_DETAIL")
         DCIFrame:RegisterEvent("UI_INFO_MESSAGE")
     else
@@ -2581,7 +2610,7 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("UI_INFO_MESSAGE")
     end
 
-    if DCI_DB.Auto_QuestComplete then
+    if DCI.db.Auto_QuestComplete then
         DCIFrame:RegisterEvent("QUEST_COMPLETE")
         DCIFrame:RegisterEvent("QUEST_PROGRESS")
         DCIFrame:RegisterEvent("GOSSIP_SHOW")
@@ -2591,7 +2620,7 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("GOSSIP_SHOW")
     end
 
-    if DCI_DB.Auto_Roll then
+    if DCI.db.Auto_Roll then
         DCIFrame:RegisterEvent("START_LOOT_ROLL")
     else
         DCIFrame:UnregisterEvent("START_LOOT_ROLL")
@@ -2681,16 +2710,16 @@ function DCI.HandleEvent(self, event, ...)
     if event == "BAG_UPDATE" and DCIFrame and DCIFrame:IsShown() then
         DCI.DebugPrint("Updating window due to bag update")
         DCI.UpdateDCIFrame(false)
-    elseif event == "BAG_UPDATE" and DCI_DB.Auto_LowSlots and DCI.LootOpen then
+    elseif event == "BAG_UPDATE" and DCI.db.Auto_LowSlots and DCI.LootOpen then
         DCI.QueueLootUpdate("BAG_UPDATE")
     end
 
-    if (event == "BAG_OPEN" or event == "BAG_CLOSED") and DCI_DB.Auto_Inventory then
+    if (event == "BAG_OPEN" or event == "BAG_CLOSED") and DCI.db.Auto_Inventory then
         DCI.QueueInventoryVisibilityUpdate()
     end
 
     --hide if we enter combat, based on global AllowInCombat
-    if DCI_DB.AllowInCombat == false and event == "PLAYER_REGEN_DISABLED" then
+    if DCI.db.AllowInCombat == false and event == "PLAYER_REGEN_DISABLED" then
         if DCIFrame and DCIFrame:IsShown() then
             DCI.DebugPrint("Hiding due to combat, setting wait flag*")
             if DCI.windowContext == WINDOW_CONTEXT_LOOT and IsLootFrameOpen() then
@@ -2699,15 +2728,15 @@ function DCI.HandleEvent(self, event, ...)
             DCI.HideWindow("combat")
         end
     end
-    if DCI_DB.AllowInCombat == false and event == "PLAYER_REGEN_ENABLED"
-        and DCI_DB.Auto_Inventory and IsInventoryOpen()
+    if DCI.db.AllowInCombat == false and event == "PLAYER_REGEN_ENABLED"
+        and DCI.db.Auto_Inventory and IsInventoryOpen()
         and not DCIFrame:IsShown() and not inventoryWindowDismissed then
         bagWindowAutoOpened = true
         DCI.UpdateDCIFrame()
     end
 
     -- Quest failures include the quest name and can arrive through the info channel.
-    local questInventoryFull = DCI_DB.Auto_QuestAccept
+    local questInventoryFull = DCI.db.Auto_QuestAccept
         and (event == "UI_ERROR_MESSAGE" or event == "UI_INFO_MESSAGE")
         and GetGameMessageInfo and GetGameMessageInfo(arg1) == "ERR_QUEST_FAILED_BAG_FULL_S"
 
@@ -2716,7 +2745,7 @@ function DCI.HandleEvent(self, event, ...)
         DCI.DebugPrint("Inventory error")
         -- Failed acceptance leaves the quest details open; no new QUEST_DETAIL is required.
         -- Check before refreshing an existing window so it also gains the quest context.
-        if DCI_DB.Auto_QuestAccept and QuestFrame and QuestFrame:IsShown()
+        if DCI.db.Auto_QuestAccept and QuestFrame and QuestFrame:IsShown()
             and QuestFrameDetailPanel and QuestFrameDetailPanel:IsShown() then
             DCI.DebugPrint("Inventory full while accepting quest - show window")
             DCI.QuestGaveError = true
@@ -2730,7 +2759,7 @@ function DCI.HandleEvent(self, event, ...)
         --if loot window is open
         elseif IsLootFrameOpen() then
             DCI.DebugPrint("Assuming inv error was from LootFrame")
-            if DCI_DB.Auto_Loot then
+            if DCI.db.Auto_Loot then
                 DCI.InvErrWaitForLootFrame = true
                 DCI.TryShowLootWindow("inventory full")
             else
@@ -2740,24 +2769,24 @@ function DCI.HandleEvent(self, event, ...)
         --if vendor window is open
         elseif MerchantFrame and MerchantFrame:IsShown() then
             DCI.DebugPrint("Assuming inv error was from MerchantFrame")
-            if DCI_DB.Auto_Vendor then
+            if DCI.db.Auto_Vendor then
                 DCI.UpdateDCIFrame()
             end
 
         --if mail window is open
         elseif MailFrame and MailFrame:IsShown() then
             DCI.DebugPrint("Assuming inv error was from MailFrame")
-            if DCI_DB.Auto_Mail then
+            if DCI.db.Auto_Mail then
                 --dont update dci, since MAIL_FAILED will handle it
             end
 
         --if we saved current target as quest giver, assume it was from accepting quest
-        elseif DCI_DB.Auto_QuestAccept and IsQuestGiverTarget() then
+        elseif DCI.db.Auto_QuestAccept and IsQuestGiverTarget() then
             DCI.DebugPrint("Assuming inv error was from accepting quest, setting flag to wait for quest window")
             DCI.QuestGaveError = true
 
         --no frames available, set flag to wait for window
-        elseif DCI_DB.Auto_Loot then
+        elseif DCI.db.Auto_Loot then
             DCI.DebugPrint("Assuming inv error was from looting, setting flag to wait for loot window")
             DCI.InvErrWaitForLootFrame = true
             DCI.TraceWindow("inventory full: waiting for loot frame")
@@ -2766,7 +2795,7 @@ function DCI.HandleEvent(self, event, ...)
     end
 
     --events for automation on loot frame
-    if DCI_DB.Auto_Loot then
+    if DCI.db.Auto_Loot then
         --when loot window shown, hook onto loot item to save clicked index
         if event == "LOOT_OPENED" then
             for i = 1,GetNumLootItems() do
@@ -2790,7 +2819,7 @@ function DCI.HandleEvent(self, event, ...)
         --hide with loot window closing
         if event == "LOOT_CLOSED" then
             if DCIFrame and DCIFrame:IsShown() and DCI.windowContext == WINDOW_CONTEXT_LOOT then
-                if DCI_DB.Auto_Inventory and IsInventoryOpen() then
+                if DCI.db.Auto_Inventory and IsInventoryOpen() then
                     bagWindowAutoOpened = true
                     DCI.UpdateDCIFrame(false)
                 else
@@ -2801,30 +2830,30 @@ function DCI.HandleEvent(self, event, ...)
         end
 
         --if we leave combat and DCI.InvErrWaitForLootFrame is true
-        if event == "PLAYER_REGEN_ENABLED" and DCI_DB.AllowInCombat == false and DCI.InvErrWaitForLootFrame then
+        if event == "PLAYER_REGEN_ENABLED" and DCI.db.AllowInCombat == false and DCI.InvErrWaitForLootFrame then
             DCI.TryShowLootWindow("combat ended")
         end
     end
 
-    if DCI_DB.Auto_LowSlots and event == "LOOT_OPENED" then
+    if DCI.db.Auto_LowSlots and event == "LOOT_OPENED" then
         DCI.QueueLootUpdate("low free slots")
     end
-    if DCI_DB.Auto_LowSlots and not DCI_DB.Auto_Loot and event == "LOOT_CLOSED"
+    if DCI.db.Auto_LowSlots and not DCI.db.Auto_Loot and event == "LOOT_CLOSED"
         and DCIFrame:IsShown() and DCI.windowContext == WINDOW_CONTEXT_LOOT then
-        if DCI_DB.Auto_Inventory and IsInventoryOpen() then
+        if DCI.db.Auto_Inventory and IsInventoryOpen() then
             bagWindowAutoOpened = true
             DCI.UpdateDCIFrame(false)
         else
             DCI.HideWindow("LOOT_CLOSED")
         end
     end
-    if DCI_DB.Auto_LowSlots and not DCI_DB.Auto_Loot and event == "PLAYER_REGEN_ENABLED"
-        and DCI_DB.AllowInCombat == false and DCI.InvErrWaitForLootFrame then
+    if DCI.db.Auto_LowSlots and not DCI.db.Auto_Loot and event == "PLAYER_REGEN_ENABLED"
+        and DCI.db.AllowInCombat == false and DCI.InvErrWaitForLootFrame then
         DCI.TryShowLootWindow("combat ended")
     end
     
     --events for automation on quest accept
-    if DCI_DB.Auto_QuestAccept then
+    if DCI.db.Auto_QuestAccept then
         --npc showing quest to accept
         if event == "QUEST_DETAIL" then
             --if wait flag was set & this was our saved questID & we dont have more space than last time
@@ -2846,7 +2875,7 @@ function DCI.HandleEvent(self, event, ...)
     end
 
     --events for automation on quest complete
-    if DCI_DB.Auto_QuestComplete then
+    if DCI.db.Auto_QuestComplete then
         --store the number of turn-in items on QUEST_PROGRESS
         if (event == "QUEST_PROGRESS" or event == "GOSSIP_SHOW") then
             DCI.QuestNumRequiredItems = GetNumQuestItems()
@@ -2873,7 +2902,7 @@ function DCI.HandleEvent(self, event, ...)
     end
 
     --events for automation on trade
-    if DCI_DB.Auto_Trade then
+    if DCI.db.Auto_Trade then
         if event == "TRADE_SHOW" or event == "TRADE_TARGET_ITEM_CHANGED" then
             --show/update the window if its open, or if bags are full
             local freeBagSlots = DCI.CountFreeBagSlots()
@@ -2900,7 +2929,7 @@ function DCI.HandleEvent(self, event, ...)
     end
 
     --events for automation on mail
-    if DCI_DB.Auto_Mail then
+    if DCI.db.Auto_Mail then
         --MAIL_FAILED might happen for other reasons, so check if bags are empty too
         if event == "MAIL_FAILED" and DCI.CountFreeBagSlots() == 0 then
             --show/update the window
@@ -2924,7 +2953,7 @@ function DCI.HandleEvent(self, event, ...)
     end
 
     --events for automation on roll
-    if DCI_DB.Auto_Roll then
+    if DCI.db.Auto_Roll then
         --when need/greed roll window is shown
         if event == "START_LOOT_ROLL" then
             --if bags are full, show/update the window
@@ -2967,7 +2996,7 @@ if isForever then
     local elapsedSinceCheck = 0
     local lastInventoryOpen
     inventoryWatcher:SetScript("OnUpdate", function(_, elapsed)
-        if not DCI_DB.Auto_Inventory then
+        if not DCI.db.Auto_Inventory then
             lastInventoryOpen = nil
             elapsedSinceCheck = 0
             return

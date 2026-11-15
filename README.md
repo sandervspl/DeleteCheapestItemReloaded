@@ -22,7 +22,7 @@ part of this release's support matrix.
 
 Extract the release ZIP into the selected client's `Interface/AddOns` directory.
 The resulting manifest must be `Interface/AddOns/DeleteCheapestItem/DeleteCheapestItem.toc`.
-For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Broker.lua`,
+For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Profiles.lua`, `ProfileUI.lua`, `Broker.lua`,
 the TOC, the entire `Libs` folder, and `Media/icon.tga` into that same folder,
 preserving the `Libs` and `Media` subfolders.
 Rebuild the icon from its source with `python scripts/build-icon.py`.
@@ -38,10 +38,10 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
   in a broker display such as Titan Panel. Left-click toggles the window,
   right-click opens Settings, and Ctrl+left-click opens Ignored Items.
   Drag the minimap button to reposition it; hide it with **Hide minimap button**
-  under **Window Behavior** in Settings. Position and visibility are saved per character.
+  under **Window Behavior** in Settings. Position and visibility are saved per profile.
   The minimap button works without a panel addon; required libraries are bundled.
 - Drag the bottom-right grip to resize the loot or ignored-items window. Each
-  window remembers its size per character; resetting settings restores both sizes.
+  window remembers its size per profile; resetting the profile restores both sizes.
 - **Show full-stack counts and values** (off by default) adds current/max stack
   counts on item icons and a gray hypothetical full-stack value beside each
   displayed vendor or auction value. The window widens while enabled. Sorting,
@@ -68,6 +68,29 @@ under **Window Behavior** to keep the window visible during combat.
 The inherited auction integrations are Auctionator, AuctionLite, Auctioneer,
 AuctionMaster, and TradeSkillMaster. Without one, the addon uses vendor values.
 Existing translations are retained; the new product name is the same in every locale.
+
+## Profiles
+
+Open Settings and scroll to **Profiles**. Select an existing profile to share its
+settings with another character. Enter a name and click **Create profile** for a
+new setup with defaults. **Copy from** replaces the active profile with an
+independent copy of another profile. **Reset Profile** restores the active
+profile's defaults. Copy, reset and deletion ask for confirmation.
+
+Settings, both windows' positions and sizes, and minimap position and visibility
+belong to the profile. Changes affect every character using that profile; other
+characters see them when they next load the addon. **Ignored items always stay
+per character**, including when switching, copying or resetting profiles.
+
+On the first login after upgrading, each character gets its own migrated profile.
+Other characters migrate when you log into them. Existing `DCI_DB` data is kept as
+a recovery snapshot; new data uses account-wide `DCI_ProfilesDB` and character-local
+`DCI_CharDB`. Profiles are shared within that client's account saved variables;
+this does not synchronize separate clients or accounts. Only profiles unused by
+all characters can be deleted. Import/export and automatic spec switching are not
+included.
+
+See [profile verification](docs/profiles-verification.md) for repeatable checks.
 
 ## Debugging a missing or disappearing window
 

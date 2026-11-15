@@ -55,8 +55,8 @@ for _, client in ipairs(Helpers.clients) do
         it("ignores unrelated errors and disabled automatic quest acceptance", function()
             env.fire("UI_ERROR_MESSAGE", 2, "You are too far away")
             assert.is_false(env.DCIFrame:IsShown())
-            env.DCI_DB.Auto_QuestAccept = false
-            env.DCI_DB.Auto_Loot = false
+            env.addon.db.Auto_QuestAccept = false
+            env.addon.db.Auto_Loot = false
             env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
             env.runTimers()
             assert.is_false(env.DCIFrame:IsShown())
@@ -64,7 +64,7 @@ for _, client in ipairs(Helpers.clients) do
 
         it("does not treat a hidden quest frame's detail panel as an active quest", function()
             env.QuestFrame:Hide()
-            env.DCI_DB.Auto_Loot = false
+            env.addon.db.Auto_Loot = false
             env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
             assert.is_false(env.DCIFrame:IsShown())
             assert.is_false(env.addon.QuestGaveError)
@@ -97,7 +97,7 @@ for _, client in ipairs(Helpers.clients) do
                     env.UnitGUID = function() return secret end
                 end
                 env.QuestFrame:Hide()
-                env.DCI_DB.Auto_Loot = false
+                env.addon.db.Auto_Loot = false
                 env.fire("UI_ERROR_MESSAGE", 1, env.ERR_INV_FULL)
                 assert.is_false(env.addon.QuestGaveError)
                 assert.is_false(env.DCIFrame:IsShown())

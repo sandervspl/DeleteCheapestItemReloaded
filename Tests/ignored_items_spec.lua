@@ -37,7 +37,7 @@ for _, client in ipairs(Helpers.clients) do
             assert.equals(2, #addon.GetSortedBagItems())
             addon.SaveIgnoredItem(20)
             addon.SaveIgnoredItem(20)
-            assert.equals(31, #saved.IgnoredItems)
+            assert.equals(31, #addon.Character.IgnoredItems)
 
             frame.CloseButton:Fire("OnClick")
             assert.is_false(frame:IsShown())
@@ -48,7 +48,7 @@ for _, client in ipairs(Helpers.clients) do
             for _, button in ipairs(frame.children) do
                 if button:GetText() == "Reset Ignored Items" then button:Fire("OnClick") end
             end
-            assert.same({}, saved.IgnoredItems)
+            assert.same({}, addon.Character.IgnoredItems)
             assert.equals("No ignored items.", frame.empty:GetText())
             assert.is_false(frame.rows[1]:IsShown())
             assert.equals(2, #addon.GetSortedBagItems())
@@ -62,7 +62,7 @@ for _, client in ipairs(Helpers.clients) do
             env.addon.SaveIgnoredItem(999)
             assert.equals("Item ID: 999", frame.rows[1].label:GetText())
             frame.rows[1].remove:Fire("OnClick")
-            assert.same({}, env.DCI_DB.IgnoredItems)
+            assert.same({}, env.addon.Character.IgnoredItems)
             assert.equals("No ignored items.", frame.empty:GetText())
         end)
     end)

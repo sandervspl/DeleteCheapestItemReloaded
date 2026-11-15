@@ -37,7 +37,7 @@ for _, client in ipairs(Helpers.clients) do
         end)
 
         it("handles full bags with a hidden replacement loot UI through combat, deletion and close", function()
-            env.DCI_DB.ConfirmMinQuality = 2
+            env.addon.db.ConfirmMinQuality = 2
             env.addItem(10, 10, { quality = 2 })
             env.putItem(0, 1, 10)
             env.inCombat = true
@@ -94,7 +94,7 @@ for _, client in ipairs(Helpers.clients) do
         end)
 
         it("honors disabled automatic looting even with diagnostics enabled", function()
-            env.DCI_DB.Auto_Loot = false
+            env.addon.db.Auto_Loot = false
             env.SlashCmdList.DCI("debug on")
             env.LootFrame:Show()
             env.fire("LOOT_OPENED", true)
@@ -163,7 +163,7 @@ for _, client in ipairs(Helpers.clients) do
                 assert.is_true(env.DCIFrame:IsShown())
             end
 
-            env.DCI_DB.AllowInCombat = false
+            env.addon.db.AllowInCombat = false
             env.addon.RegisterFrameEvents()
             env.fire("PLAYER_REGEN_DISABLED")
             assert.is_false(env.DCIFrame:IsShown())
@@ -204,9 +204,9 @@ for _, client in ipairs(Helpers.clients) do
         it("follows multiple open bags and keeps the window through a loot session", function()
             local env = Helpers.loadAddon({ client = client, saved = { Auto_Loot = false } })
             env.putItem(0, 1, 10)
-            assert.is_false(env.DCI_DB.Auto_Inventory)
-            assert.is_false(env.DCI_DB.Auto_LowSlots)
-            assert.equals(0, env.DCI_DB.LowSlotsThreshold)
+            assert.is_false(env.addon.db.Auto_Inventory)
+            assert.is_false(env.addon.db.Auto_LowSlots)
+            assert.equals(0, env.addon.db.LowSlotsThreshold)
 
             local checkbox = env.DCI_Config_Checkbox_Auto_Inventory
             checkbox:SetChecked(true)
@@ -237,7 +237,7 @@ for _, client in ipairs(Helpers.clients) do
             env.runTimers()
             assert.is_true(env.DCIFrame:IsShown())
 
-            env.DCI_DB.Auto_LowSlots = true
+            env.addon.db.Auto_LowSlots = true
             env.addon.RegisterFrameEvents()
             env.loot = { { name = "Loot", link = "item:10:0" } }
             env.LootFrame:Show()
@@ -273,11 +273,11 @@ for _, client in ipairs(Helpers.clients) do
             local threshold = env.DCI_Config_LowSlotsThreshold
             threshold:SetText("3")
             threshold:Fire("OnTextChanged", true)
-            assert.equals(3, env.DCI_DB.LowSlotsThreshold)
+            assert.equals(3, env.addon.db.LowSlotsThreshold)
             env.addon.UpdateDCISettings()
             assert.equals("3", threshold:GetText())
             threshold:Fire("OnEditFocusLost")
-            assert.equals(3, env.DCI_DB.LowSlotsThreshold)
+            assert.equals(3, env.addon.db.LowSlotsThreshold)
             assert.equals("3", threshold:GetText())
 
             env.LootFrame:Show()

@@ -4,8 +4,8 @@ local broker = LibStub("LibDataBroker-1.1")
 local minimap = LibStub("LibDBIcon-1.0")
 
 function DCI.InitializeBroker()
-    if type(DCI_DB.Minimap) ~= "table" then DCI_DB.Minimap = {} end
-    if DCI_DB.Minimap.hide == nil then DCI_DB.Minimap.hide = false end
+    if type(DCI.db.Minimap) ~= "table" then DCI.db.Minimap = {} end
+    if DCI.db.Minimap.hide == nil then DCI.db.Minimap.hide = false end
 
     if not DCI.Broker then
         DCI.Broker = broker:NewDataObject(addonName, {
@@ -31,16 +31,16 @@ function DCI.InitializeBroker()
                 tooltip:AddLine(L["Ctrl+left-click to open ignored items."], 1, 1, 1)
             end,
         })
-        minimap:Register(addonName, DCI.Broker, DCI_DB.Minimap)
+        minimap:Register(addonName, DCI.Broker, DCI.db.Minimap)
     else
-        -- Resetting defaults replaces DCI_DB; rebind the library to the new table.
-        minimap:Refresh(addonName, DCI_DB.Minimap)
+        -- Resetting defaults replaces DCI.db; rebind the library to the new table.
+        minimap:Refresh(addonName, DCI.db.Minimap)
     end
 end
 
 function DCI.SetMinimapHidden(hidden)
-    DCI_DB.Minimap.hide = hidden and true or false
-    if DCI_DB.Minimap.hide then
+    DCI.db.Minimap.hide = hidden and true or false
+    if DCI.db.Minimap.hide then
         minimap:Hide(addonName)
     else
         minimap:Show(addonName)

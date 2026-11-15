@@ -6,11 +6,11 @@ for _, client in ipairs(Helpers.clients) do
             for _, eui in ipairs({ false, {}, { RegisterSkin = function() end } }) do
                 local env = Helpers.loadAddon({ client = client, ellesmereUI = eui or nil })
                 env.addon.UpdateDCIFrame()
-                env.DCI_DB.HideBronzeTheme = true
+                env.addon.db.HideBronzeTheme = true
                 env.addon.UpdateWindowTheme()
                 if client.game == "camelot" then
                     assert.is_true(env.DCIFrame.RegularTheme:IsShown())
-                    env.DCI_DB.HideBronzeTheme = false
+                    env.addon.db.HideBronzeTheme = false
                     env.addon.UpdateWindowTheme()
                     assert.is_true(env.DCIFrame.NineSlice:IsShown())
                 end
@@ -50,7 +50,7 @@ for _, client in ipairs(Helpers.clients) do
                 local ignored = env.addon.IgnoredItemsFrame
                 env.addon.SaveIgnoredItem(10)
                 if not early then
-                    env.DCI_DB.HideBronzeTheme = true
+                    env.addon.db.HideBronzeTheme = true
                     env.addon.UpdateWindowTheme()
                     apply(skin)
                 end
@@ -63,7 +63,7 @@ for _, client in ipairs(Helpers.clients) do
                 ignored.rows[1].remove:Fire("OnClick")
                 assert.is_false(env.addon.IsItemIgnored(10))
                 env.addon.SaveIgnoredItem(10)
-                env.DCI_DB.HideBronzeTheme = false
+                env.addon.db.HideBronzeTheme = false
                 env.addon.UpdateWindowTheme()
                 if ignored.RegularTheme then assert.is_false(ignored.RegularTheme:IsShown()) end
                 assert.equals("CloseButton", env.DCIFrame.CloseButton.skinKind)

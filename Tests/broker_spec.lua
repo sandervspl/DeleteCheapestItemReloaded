@@ -40,7 +40,7 @@ for _, client in ipairs(Helpers.clients) do
             assert.same({}, env.deleted)
             assert.same({}, env.sold)
             assert.equals(10, env.bags[0].slots[1].itemID)
-            assert.is_true(env.DCI_DB.IgnoredItems[20])
+            assert.is_true(env.addon.Character.IgnoredItems[20])
 
             local lines = {}
             object.OnTooltipShow({ AddLine = function(_, text) lines[#lines + 1] = text end })
@@ -64,42 +64,42 @@ for _, client in ipairs(Helpers.clients) do
             icon:Fire("OnDragStart")
             icon:Fire("OnUpdate")
             icon:Fire("OnDragStop")
-            local position = env.DCI_DB.Minimap.minimapPos
+            local position = env.addon.db.Minimap.minimapPos
             assert.is_true(position > 0 and position < 90)
             local checkbox = env.DCI_Config_Checkbox_HideMinimapButton
             checkbox:SetChecked(true)
             checkbox:Fire("OnClick")
             assert.is_false(icon:IsShown())
-            assert.is_true(env.DCI_DB.Minimap.hide)
+            assert.is_true(env.addon.db.Minimap.hide)
 
-            local reloaded = Helpers.loadAddon({ client = client, saved = env.DCI_DB })
+            local reloaded = Helpers.loadAddon({ client = client, saved = env.addon.db })
             login(reloaded)
             local library = reloaded.LibStub("LibDBIcon-1.0")
             icon = library:GetMinimapButton(reloaded.addonName)
             assert.is_false(icon:IsShown())
-            assert.equals(position, reloaded.DCI_DB.Minimap.minimapPos)
+            assert.equals(position, reloaded.addon.db.Minimap.minimapPos)
             assert.is_true(reloaded.DCI_Config_Checkbox_HideMinimapButton:GetChecked())
             -- Panel remains available even with the minimap button hidden.
             reloaded.addon.Broker.OnClick({}, "RightButton")
             assert.equals(42, reloaded.openedCategory)
 
-            local oldSettings = reloaded.DCI_DB.Minimap
+            local oldSettings = reloaded.addon.db.Minimap
             local object = reloaded.addon.Broker
             reloaded.addon.InitializeSavedVariables(true)
             reloaded.addon.UpdateDCISettings()
             assert.equals(object, reloaded.addon.Broker)
             assert.is_true(oldSettings ~= icon.db)
-            assert.equals(reloaded.DCI_DB.Minimap, icon.db)
+            assert.equals(reloaded.addon.db.Minimap, icon.db)
             assert.is_true(icon:IsShown())
             assert.is_false(reloaded.DCI_Config_Checkbox_HideMinimapButton:GetChecked())
             icon:Fire("OnDragStart")
             icon:Fire("OnUpdate")
             icon:Fire("OnDragStop")
-            assert.equals(position, reloaded.DCI_DB.Minimap.minimapPos)
+            assert.equals(position, reloaded.addon.db.Minimap.minimapPos)
             reloaded.addon.SetMinimapHidden(true)
             reloaded.addon.SetMinimapHidden(false)
             assert.is_true(icon:IsShown())
-            assert.is_false(reloaded.DCI_DB.Minimap.hide)
+            assert.is_false(reloaded.addon.db.Minimap.hide)
         end)
 
         it("keeps a saved hidden button hidden when settings change before PLAYER_LOGIN", function()
