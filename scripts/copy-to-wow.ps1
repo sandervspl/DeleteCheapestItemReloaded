@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 # Keep the original install identity so WoW loads existing per-character DCI_DB settings.
 $addonName = "DeleteCheapestItem"
 $sourceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$sourceFiles = @("DeleteCheapestItem.toc", "Localization.lua", "DeleteCheapestItem.lua", "Broker.lua", "Media\icon.tga")
+$sourceFiles = @("DeleteCheapestItem.toc", "Localization.lua", "Profiles.lua", "ProfileUI.lua", "DeleteCheapestItem.lua", "Broker.lua", "Media\icon.tga")
 $sourceFiles += Get-ChildItem -LiteralPath (Join-Path $sourceRoot "Libs") -File -Recurse | ForEach-Object {
     $_.FullName.Substring($sourceRoot.Length + 1)
 }

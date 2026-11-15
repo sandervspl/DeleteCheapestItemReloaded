@@ -1,7 +1,9 @@
 # Profiles system research
 
-Status: Research and proposal only. Ignored-item and position scopes are confirmed
-by the user below; no runtime implementation has been made.
+Status: Implemented with AceDB and native profile controls. Ignored items remain
+per character; window positions/sizes and minimap position/visibility are per
+profile. In-game verification remains outstanding. The research below records
+the alternatives and implementation rationale.
 
 ## Recommendation
 
@@ -70,7 +72,7 @@ and the selected shared profile.
 Confirmed scope decisions:
 
 - Ignored items remain per character, independent of the selected profile.
-- Window positions and minimap position belong to the selected profile.
+- Window positions and sizes, and minimap position and visibility, belong to the selected profile.
 
 Proposed remaining scope:
 
@@ -82,9 +84,8 @@ Proposed remaining scope:
 
 Selecting, copying or resetting a profile must preserve the current character's
 ignored items. Position edits affect all characters using the same profile;
-copying a profile must make independent copies of its position tables. Window
-sizes and minimap visibility were not specified by the position decision and
-remain separate scope choices.
+copying a profile must make independent copies of its position tables. Window sizes and minimap visibility also belong to the profile, as confirmed
+by the user.
 
 ## Suggested first release
 
@@ -136,8 +137,8 @@ profile operations; profile-owned positions switching and copying independently;
 nested-table isolation; deleting a profile
 referenced by another character; switching with a pending popup/timer; auction
 cache invalidation; minimap rebinding; and reload persistence. Record client builds,
-repeatable steps and observed results. No implementation or in-game tests were
-performed for this research.
+repeatable steps and observed results. Automated implementation checks and manual verification steps are recorded in
+[profile verification](profiles-verification.md).
 
 ## Blizzard client reference
 

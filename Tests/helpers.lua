@@ -28,6 +28,8 @@ function Helpers.loadAddon(options)
     env.timers, env.time = {}, 0
     env.openBags = {}
     env.DCI_DB = options.saved or {}
+    env.DCI_ProfilesDB = options.profiles
+    env.DCI_CharDB = options.character
     env.EllesmereUI = options.ellesmereUI
     env.SlashCmdList, env.StaticPopupDialogs, env.UISpecialFrames = {}, {}, {}
     env.NUM_BAG_SLOTS = 4
@@ -175,6 +177,22 @@ function Helpers.loadAddon(options)
         end
     end
     env.DEFAULT_CHAT_FRAME = { AddMessage = function(_, text) table.insert(env.messages, text) end }
+    env.UnitNameUnmodified = function() return options.name or "Character", "Surname" end
+    env.UnitClass = function() return "Warrior", "WARRIOR" end
+    env.UnitRace = function() return "Human", "Human" end
+    env.UnitFactionGroup = function() return "Alliance" end
+    env.GetRealmName = function() return "Realm" end
+    env.GetCurrentRegion = function() return 3 end
+    if env.client.scrollBoxLoot then
+        env.GetCurrentRegionName = function() return "EU" end
+        env.RegionalUniqueNamesEnabled = function() return true end
+        env.Enum = { GameRule = { RPRuleset = 1, PvPRuleset = 2, HardcoreRuleset = 3 } }
+        env.C_GameRules = { IsGameRuleActive = function() return false end }
+    end
+    env.strlenutf8 = function(value)
+        local _, count = value:gsub("[^\128-\193]", "")
+        return count
+    end
     env.GetLocale = function() return options.locale or "enUS" end
     env.GetBuildInfo = function() return "test", "test", "test", env.client.interface end
     env.GetTime = function() return env.time end
@@ -241,6 +259,9 @@ function Helpers.loadAddon(options)
         if env.deleteFails then return end
         table.insert(env.deleted, env.cursor[2])
         env.cursor, env.pickedUp = nil, nil
+    end
+    env.StaticPopup_Hide = function(key)
+        if env.popup and env.popup.key == key then env.popup = nil end
     end
     env.StaticPopup_Show = function(key, text1, text2, data)
         env.popup = { key = key, text1 = text1, text2 = text2, data = data }

@@ -17,7 +17,7 @@ describe("inventory actions", function()
     end)
 
     it("defers deletion and looting until the confirmation is accepted", function()
-        env.DCI_DB.ConfirmMinQuality = 2
+        env.addon.db.ConfirmMinQuality = 2
         local calls = 0
         assert.is_false(addon.ConfirmAndDeleteBagItem(0, 1, stack, function() calls = calls + 1 end))
         assert.same({}, env.deleted)
@@ -31,14 +31,14 @@ describe("inventory actions", function()
 
     for _, change in ipairs({ "replacement", "quantity", "link", "empty", "locked", "ignored", "quest", "bound", "cursor" }) do
         it("rejects confirmation after the stack becomes " .. change, function()
-            env.DCI_DB.ConfirmMinQuality = 2
+            env.addon.db.ConfirmMinQuality = 2
             addon.ConfirmAndDeleteBagItem(0, 1, stack)
             if change == "replacement" then env.putItem(0, 1, 20)
             elseif change == "quantity" then stack.stackCount = 2
             elseif change == "link" then stack.hyperlink = "item:10:99"
             elseif change == "empty" then env.bags[0].slots[1] = nil
             elseif change == "locked" then stack.isLocked = true
-            elseif change == "ignored" then env.DCI_DB.IgnoredItems = { 10 }
+            elseif change == "ignored" then env.addon.Character.IgnoredItems = { 10 }
             elseif change == "quest" then stack.quest = { questID = 5 }
             elseif change == "bound" then stack.isBound = true
             elseif change == "cursor" then env.cursor = { "item", 999 } end
@@ -94,7 +94,7 @@ describe("inventory actions", function()
     end)
 
     it("continues looting from the real button only after confirming deletion", function()
-        env.DCI_DB.ConfirmMinQuality = 2
+        env.addon.db.ConfirmMinQuality = 2
         env.loot = { { name = "Quest", quest = true }, { name = "Item 10", link = env.items[10].link } }
         env.LootFrame:Show()
         env.LootFrame.DCI_LootIndexUserClick = 2
@@ -115,7 +115,7 @@ describe("auction comparisons", function()
         assert.is_nil(env.addon.ItemInfo[10].bestPricePer)
         env.items[10].pending = false
         env.fire("GET_ITEM_INFO_RECEIVED", 10, true)
-        env.DCI_DB.AuctionPriceHidePoorQuality = false
+        env.addon.db.AuctionPriceHidePoorQuality = false
         assert.equals(95, env.addon.ItemInfo[10].bestPricePer)
     end)
 
@@ -126,16 +126,16 @@ describe("auction comparisons", function()
             assert.equals(env.addonName, name)
             return id == 10 and 100 or 10
         end } } }
-        env.DCI_DB.AuctionPriceHidePoorQuality = false
+        env.addon.db.AuctionPriceHidePoorQuality = false
         env.addItem(10, 5)
         env.addItem(20, 50)
         env.putItem(0, 1, 10)
         env.putItem(0, 2, 20)
-        env.DCI_DB.CompareByPrice = env.addon.PRICE_TYPE_VENDOR
+        env.addon.db.CompareByPrice = env.addon.PRICE_TYPE_VENDOR
         assert.equals(10, env.addon.GetSortedBagItems()[1].itemID)
-        env.DCI_DB.CompareByPrice = env.addon.PRICE_TYPE_AUCTION
+        env.addon.db.CompareByPrice = env.addon.PRICE_TYPE_AUCTION
         assert.equals(20, env.addon.GetSortedBagItems()[1].itemID)
-        env.DCI_DB.CompareByPrice = env.addon.PRICE_TYPE_BEST
+        env.addon.db.CompareByPrice = env.addon.PRICE_TYPE_BEST
         assert.equals(20, env.addon.GetSortedBagItems()[1].itemID)
         assert.equals(95, env.addon.GetSortedBagItems()[2].bestPricePer)
     end)
