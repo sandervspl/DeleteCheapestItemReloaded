@@ -14,3 +14,7 @@ For every task that diagnoses, reviews, or changes WoW addon behavior, Lua, XML,
 If the reference cannot be fetched or does not contain the relevant implementation, state that explicitly. Do not silently substitute recollection or unrelated third-party documentation.
 
 The reference is not required for work that cannot affect addon behavior, such as repository-only documentation, release workflow, or metadata maintenance.
+
+## Settings layout
+
+Append new settings to a new row at the bottom of their section. Do not put new controls in the right column beside existing dropdown rows: those dropdowns and labels use the row width. Increase the section height and move subsequent sections and scroll content bounds down to make room.

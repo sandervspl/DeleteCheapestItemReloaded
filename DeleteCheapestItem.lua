@@ -2125,6 +2125,18 @@ function DCI.ApplyProfile()
     if DCI.RefreshProfileControls then DCI.RefreshProfileControls() end
 end
 
+function DCI.UpdateEscapeBehavior()
+    -- Remove existing entries first so repeated changes never duplicate registration.
+    for index = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[index] == "DCIFrame" then
+            table.remove(UISpecialFrames, index)
+        end
+    end
+    if DCI.db.CloseOnEscape then
+        table.insert(UISpecialFrames, "DCIFrame")
+    end
+end
+
 --function to create settings panel
 function DCI.CreateDCISettings()
     --local function to create panel section wrapper
@@ -2238,7 +2250,7 @@ function DCI.CreateDCISettings()
     scrollFrame.ScrollBar.scrollStep = 27
 
     local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
-    ConfigFrame:SetSize(635, 1000)
+    ConfigFrame:SetSize(635, 1027)
     scrollFrame:SetScrollChild(ConfigFrame)
     scrollFrame:HookScript("OnSizeChanged", function(self, width)
         ConfigFrame:SetWidth(math.max(635, width))
@@ -2265,7 +2277,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for window behavior
-    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 6*27+16, L["Window Behavior"])
+    local Section_WindowSettings = CreateConfigPanelSection(ConfigFrame, 0, -100+5, 7*27+16, L["Window Behavior"])
 
     CreateConfigPanelCheckbox(Section_WindowSettings, 250, 0, "HideWindowTitle", L["Hide window title"])
 
@@ -2307,10 +2319,15 @@ function DCI.CreateDCISettings()
         end)
     end
 
+    CreateConfigPanelCheckbox(Section_WindowSettings, 0, 6*-27, "CloseOnEscape", L["Press Escape to close the window"], function(self)
+        DCI.db.CloseOnEscape = self:GetChecked()
+        DCI.UpdateEscapeBehavior()
+    end)
+
     ---------------------------
 
     --section for auctomatic display settings
-    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10-27, 5*27+16, L["Automatic Display"])
+    local Section_AutomaticDisplay = CreateConfigPanelSection(ConfigFrame, 0, -275+10-27-27, 5*27+16, L["Automatic Display"])
 
     --checkboxes for auto settings
     local Checkbox_Auto_Loot = CreateConfigPanelCheckbox(Section_AutomaticDisplay, 0, 0*-27, "Auto_Loot", L["Looting items"])
@@ -2358,7 +2375,7 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auction settings
-    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27, 6*27+15, L["Auction Prices"])
+    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27-27, 6*27+15, L["Auction Prices"])
 
     --checkbox for UseAuctionPrices
     local Checkbox_UseAuctionPrices = CreateConfigPanelCheckbox(Section_AuctionSettings, 0, 0*-27, "UseAuctionPrices", L["Use auction prices"])
@@ -2516,6 +2533,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI.db.MaxQuality == nil then DCI.db.MaxQuality = 2 end --default to uncommon
     if DCI.db.CompareByPrice == nil then DCI.db.CompareByPrice = DCI.PRICE_TYPE_BEST end
     if DCI.db.FollowLootWindow == nil then DCI.db.FollowLootWindow = false end
+    if DCI.db.CloseOnEscape == nil then DCI.db.CloseOnEscape = false end
     if DCI.db.HideWindowTitle == nil then DCI.db.HideWindowTitle = false end
     if DCI.db.ShowFullStackValues == nil then DCI.db.ShowFullStackValues = false end
     if DCI.db.ShowBothPrices == nil then DCI.db.ShowBothPrices = false end
@@ -2532,6 +2550,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI.db.Auto_Roll == nil then DCI.db.Auto_Roll = true end
 
     DCI.InitializeBroker()
+    DCI.UpdateEscapeBehavior()
 
     DCI.UpdateWindowTheme()
     if DCIFrame.DCI_ApplySize then DCIFrame:DCI_ApplySize() end
