@@ -675,6 +675,9 @@ function DCI.ShowIgnoredItems()
         frame:SetScript("OnHide", function() GameTooltip:Hide() end)
         frame:HookScript("OnHide", FinishDrag)
         AddResizeGrip(frame, "IgnoredWindowSize", 310, 160, 286, LayoutIgnoredItems)
+        DCI.Gamepad.IgnoreFrame(drag)
+        DCI.Gamepad.IgnoreFrame(frame.ResizeGrip)
+        DCI.Gamepad.RegisterWindow(frame)
         SkinIgnoredItems()
     end
     if DCI.db.IgnoredWindowPosition then
@@ -1483,6 +1486,9 @@ function DCI.CreateDCIFrame()
     end)
     AddResizeGrip(DCIFrame, "WindowSize", 290, 200, 240, LayoutMainWindow,
         function() return DCI.db.ShowFullStackValues and 180 or 0 end)
+    -- A controller press on these would save a position or size without moving anything.
+    DCI.Gamepad.IgnoreFrame(DCI_DragFrame)
+    DCI.Gamepad.IgnoreFrame(DCIFrame.ResizeGrip)
     mainWidgetsReady = true
     SkinMainWindow()
 end
@@ -1869,10 +1875,23 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
                 DCI_SecondTooltip:SetPoint("TOPLEFT", GameTooltip, "BOTTOMLEFT", 0, 0)
                 DCI_SecondTooltip:SetText(L["Click to add this item to the Ignore List"], 1, 1, 1, 0.75)
                 DCI_SecondTooltip:Show()
-            
+
+                -- Controller focus stays on the icon, so it handles the click itself.
+                if DCI.Gamepad.IsActive() then return end
                 DCI_IgnoreButton.itemNum = itemNum
                 DCI_IgnoreButton:SetPoint("CENTER", ItemIconTexture)
                 DCI_IgnoreButton:Show()
+            end)
+            -- With a mouse, the overlay covers the icon and owns the tooltips until it is left.
+            ItemIcon:SetScript("OnLeave", function()
+                if DCI_IgnoreButton:IsShown() then return end
+                GameTooltip:Hide()
+                DCI_SecondTooltip:Hide()
+            end)
+            ItemIcon:SetScript("OnClick", function()
+                if not DCI.Gamepad.IsActive() then return end
+                DCI.SaveIgnoredItem(bagItem.itemID)
+                DCI.UpdateDCIFrame(false)
             end)
             DCI_IgnoreButton:SetScript("OnLeave", function()
                 GameTooltip:Hide()
@@ -2057,6 +2076,15 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
     --finally set text in frame
     DCI_TopSection_Text1:SetText(topSection_Text1)
     DCI_TopSection_Text2:SetText(topSection_Text2)
+
+    local gamepadFallback = DCIFrame.CloseButton
+    for i = math.min(#bagItems, DCI.MAX_ITEM_FRAMES), 1, -1 do
+        if _G["DCI_Item" .. i]:IsShown() then
+            gamepadFallback = _G["DCI_DeleteButton" .. i]
+            break
+        end
+    end
+    DCI.Gamepad.RefreshSelection(DCIFrame, gamepadFallback)
 
     -- finalize
     -----------------
@@ -3005,6 +3033,7 @@ end
 
 local DCIFrame = CreateMainFrame()
 DCI.HideWindow("startup")
+DCI.Gamepad.RegisterWindow(DCIFrame)
 DCIFrame:RegisterEvent("ADDON_LOADED")
 DCIFrame:SetScript("OnEvent", DCI.HandleEvent)
 

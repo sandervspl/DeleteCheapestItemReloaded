@@ -11,7 +11,7 @@ describe("supported client manifests", function()
         assert.is_truthy(toc:find("## Author: Sander Vispoel (sandervspl)", 1, true))
         assert.is_truthy(toc:find("<Night Shift> Suey", 1, true))
         assert.is_truthy(toc:find("## SavedVariablesPerCharacter: DCI_DB", 1, true))
-        assert.is_truthy(toc:find("Localization.lua\nProfiles.lua\nProfileUI.lua\nDeleteCheapestItem.lua", 1, true))
+        assert.is_truthy(toc:find("Localization.lua\nGamepad.lua\nProfiles.lua\nProfileUI.lua\nDeleteCheapestItem.lua", 1, true))
     end)
 end)
 
