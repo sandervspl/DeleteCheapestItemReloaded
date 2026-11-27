@@ -10,6 +10,10 @@ DCI.db = {}
 -- Limit native bronze styling to Forever's interface range.
 local _, _, _, interfaceVersion = GetBuildInfo()
 local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
+-- Only clients with an equipped reagent bag define this index.
+local REAGENT_BAG_ID = Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag
+-- Forever's thick window border overlaps the item icons' left edge.
+local ITEM_ICON_INSET = isForever and 4 or 0
 
 -- A target's identity can become restricted between QUEST_DETAIL and a bag-full error.
 local function GetReadableTargetGUID()
@@ -997,6 +1001,7 @@ function DCI.GetSortedBagItems()
     	            -- Append info
     	            newBagItem.bag = bag
     	            newBagItem.slot = slot
+                    newBagItem.isInReagentBag = REAGENT_BAG_ID ~= nil and bag == REAGENT_BAG_ID
                     newBagItem.name = DCI.ItemInfo[itemID].name
     	            newBagItem.vendorPricePer = DCI.ItemInfo[itemID].vendorPricePer or 0
     	            newBagItem.vendorPriceTotal = newBagItem.quantity * newBagItem.vendorPricePer
@@ -1419,7 +1424,7 @@ function DCI.CreateDCIFrame()
         --item icon
         local ItemIcon = CreateFrame("Button", "DCI_ItemIcon" ..itemNum, ItemParent)
         ItemIcon:SetSize(38, 38)
-        ItemIcon:SetPoint("TOPLEFT", ItemParent)
+        ItemIcon:SetPoint("TOPLEFT", ItemParent, "TOPLEFT", ITEM_ICON_INSET, 0)
         ItemIcon:SetFrameLevel(4)
         local ItemIconTexture = ItemIcon:CreateTexture("DCI_ItemIconTexture" ..itemNum, "BACKGROUND")
         ItemIconTexture:SetAllPoints(ItemIcon)
@@ -1428,13 +1433,20 @@ function DCI.CreateDCIFrame()
         local ItemIconCountText = ItemIcon:CreateFontString("DCI_ItemIconCountText" ..itemNum, "OVERLAY", "NumberFontNormal")
         ItemIconCountText:SetPoint("BOTTOMRIGHT", ItemIcon, "BOTTOMRIGHT", -2, 2)
 
+        --marks items stored in the reagent bag (same leaf atlas as Baganator's reagents toggle)
+        local ReagentBagIcon = ItemIcon:CreateTexture("DCI_ItemReagentBagIcon" ..itemNum, "OVERLAY")
+        ReagentBagIcon:SetSize(18, 18)
+        ReagentBagIcon:SetPoint("TOPLEFT", ItemIcon, "TOPLEFT", 2, -1)
+        ReagentBagIcon:SetAtlas("Professions_Tracking_Herb")
+        ReagentBagIcon:Hide()
+
         --item info box background
         local ItemInfo_Bg = ItemParent:CreateTexture("ItemInfo_Bg", "BACKGROUND")
         ItemInfo_Bg:SetTexture(136796)
         ItemInfo_Bg:SetVertexColor(0.5, 0.5, 0.5, 1)
         ItemInfo_Bg:SetPoint("TOPLEFT", ItemIcon, "TOPRIGHT", 5, 0)
         ItemParent.DCI_InfoBackground = ItemInfo_Bg
-        ItemInfo_Bg:SetSize(150, 38)
+        ItemInfo_Bg:SetSize(150 - ITEM_ICON_INSET, 38)
         ItemInfo_Bg:SetTexCoord(0.08, 0.92, 0.18, 0.82)
 
         --glow texture for highlight (start out hidden)
@@ -1746,6 +1758,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             local ItemIcon = _G['DCI_ItemIcon'..itemNum]
             local ItemIconTexture = _G['DCI_ItemIconTexture'..itemNum]
             local ItemIconCountText = _G['DCI_ItemIconCountText' ..itemNum]
+            local ItemReagentBagIcon = _G['DCI_ItemReagentBagIcon' ..itemNum]
             local ItemGlowTexture = _G['DCI_ItemGlowTexture' ..itemNum]
             local ItemInfoTopLeft = _G['DCI_ItemInfo_TextTopLeft'..itemNum]
             local ItemInfoTopRight = _G['DCI_ItemInfo_TextTopRight'..itemNum]
@@ -1758,7 +1771,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
 
             -- Reserve room for the optional full-stack value without crowding the labels.
             ItemParent:SetWidth(258 + extraWidth)
-            ItemParent.DCI_InfoBackground:SetWidth(150 + extraWidth)
+            ItemParent.DCI_InfoBackground:SetWidth(150 - ITEM_ICON_INSET + extraWidth)
             local maxStackSize = DCI.ItemInfo[bagItem.itemID].maxStackSize
             local function valueString(total)
                 return DCI.GetStackValueString(total, bagItem.quantity, maxStackSize)
@@ -1772,6 +1785,7 @@ function DCI.UpdateDCIFrame(showFrameAfterUpdate)
             end
             ItemIconCountText:SetFontObject(DCI.db.ShowFullStackValues and "GameFontNormalSmall" or "NumberFontNormal")
             ItemIconCountText:SetText(count)
+            if bagItem.isInReagentBag then ItemReagentBagIcon:Show() else ItemReagentBagIcon:Hide() end
 
             --grey out poor quality
             if bagItem.quality == 0 then

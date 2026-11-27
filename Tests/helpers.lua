@@ -76,6 +76,7 @@ function Helpers.loadAddon(options)
     function methods:IsVisible() return self.shown and (not self.parent or self.parent:IsVisible()) end
     function methods:Enable() self.enabled = true; self:Fire("OnEnable") end
     function methods:Disable() self.enabled = false; self:Fire("OnDisable") end
+    function methods:SetAtlas(atlas) self.atlas = atlas end
     function methods:SetChecked(value) self.checked = value end
     function methods:GetChecked() return self.checked end
     function methods:SetText(text) self.text = text end
@@ -186,7 +187,7 @@ function Helpers.loadAddon(options)
     if env.client.scrollBoxLoot then
         env.GetCurrentRegionName = function() return "EU" end
         env.RegionalUniqueNamesEnabled = function() return true end
-        env.Enum = { GameRule = { RPRuleset = 1, PvPRuleset = 2, HardcoreRuleset = 3 } }
+        env.Enum = { GameRule = { RPRuleset = 1, PvPRuleset = 2, HardcoreRuleset = 3 }, BagIndex = { ReagentBag = 5 } }
         env.C_GameRules = { IsGameRuleActive = function() return false end }
     end
     env.strlenutf8 = function(value)
