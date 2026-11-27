@@ -323,6 +323,7 @@ function Helpers.loadAddon(options)
     function env.acceptPopup()
         env.StaticPopupDialogs[env.popup.key].OnAccept({}, env.popup.data)
     end
+    if options.beforeLoad then options.beforeLoad(env) end
     for line in Helpers.readFile("DeleteCheapestItem.toc"):gmatch("[^\r\n]+") do
         if line:match("%.lua$") then
             local chunk = assert(loadfile(line))

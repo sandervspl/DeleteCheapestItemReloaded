@@ -131,6 +131,57 @@ an explicit `false` and the original addon's legacy setting, remain intact.
 The existing client-matrix scenarios cover repeated combat transitions, bag
 updates, the saved opt-out, and resetting defaults.
 
+## Forever controller support
+
+Checked on 2026-11-24 against `forever` commit [`c01a87b549bb`](https://github.com/Gethe/wow-ui-source/tree/c01a87b549bb)
+(1.60.1.71091). All paths are relative to upstream `Interface/AddOns/`.
+
+- `Blizzard_GamepadSharedUtility/FrameControlsManager.lua`: frames outside
+  `ShowUIPanel` join controller focus by calling `FrameShown` on show and
+  `FrameHidden` on hide, as `Blizzard_ColorPickerFrame/Mainline/ColorPickerFrame.lua`
+  does. Focusing a frame activates SmartNavigation for it; the triggers switch
+  between shown frames.
+- `Blizzard_GamepadSmartNavigation/SmartNavigation.lua` and `Utility.lua`: buttons,
+  edit boxes, and frames with mouse-down/up scripts are navigable. The bottom face
+  button calls `MouseDown`/`MouseUp` on the focused button (these simulate a click,
+  per `SimpleScriptRegionAPIDocumentation.lua`), and the right face button clicks the
+  active frame's `CloseButton`. Focus calls `FocusEnter`/`FocusExit`, which run
+  `OnEnter`/`OnLeave`. `SmartNavigation_MarkFrameIgnored` removes a frame from
+  navigation; `SetTargetButtonForFrame` is the wrapped way to move the cursor.
+- `Blizzard_GamepadSmartNavigation/SecureHelper.lua`: those wrapped functions and
+  secure keys refuse insecure callers while
+  `C_RestrictedActions.IsAddOnRestrictionActive(Enum.AddOnRestrictionType.Combat)`
+  is true. `RestrictedActionsDocumentation.lua` and
+  `RestrictedActionsConstantsDocumentation.lua` define
+  `ADDON_RESTRICTION_STATE_CHANGED`; during its `Activating` dispatch the
+  restriction is not yet enforced.
+- `Blizzard_SharedXML/Mainline/InputUtil.lua` and `InputDocumentation.lua`:
+  `InputUtil.IsGamepadUIEnabled()` and `INPUT_DEVICE_INTERFACE_TRANSITION`.
+- `Blizzard_StaticPopup/StaticPopupGamepad.lua`: the deletion confirmation popup
+  already receives native controller handling.
+
+`Gamepad.lua` registers the main and ignored-items windows with the focus manager.
+The windows release focus when the combat restriction is activating and register
+again when it ends. A window hidden during combat therefore cannot keep the D-pad
+and face buttons captured. Title drag handles and resize grips are excluded from
+navigation, because pressing one would save a position or size without moving the
+window. The ignore overlay depends on mouse hover, so in controller mode the item
+icon handles the press itself. When a list refresh hides the focused row, the
+cursor moves to the last visible Delete button.
+
+Checked `classic_era` (`4192ac60067f`), `classic_anniversary` (`68e0a2ec559d`),
+and `classic` (`b440d8091265`): none defines `GamepadMode.FrameControlsManager`,
+`SmartNavigation_MarkFrameIgnored`, or `InputUtil.IsGamepadUIEnabled`. The module is
+limited to the `16xxx` interface range, and `Tests/gamepad_spec.lua` verifies that
+the Classic clients never call these APIs.
+
+In-game, with the controller interface enabled, check that the window takes focus
+from loot, merchant, quest, and bag contexts, and that ignore, delete, sell, and the
+confirmation popup work. Also check scrolling past the visible rows, switching windows
+with the triggers, closing with the right face button, and combat entry and exit
+with the window open. The tests mock the focus manager; they do not prove that
+deletion is accepted as a hardware-initiated action from a controller press.
+
 ## Packaging reference
 
 The release workflow uses BigWigsMods/packager commit

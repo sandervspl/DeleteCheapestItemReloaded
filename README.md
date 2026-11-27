@@ -22,7 +22,7 @@ part of this release's support matrix.
 
 Extract the release ZIP into the selected client's `Interface/AddOns` directory.
 The resulting manifest must be `Interface/AddOns/DeleteCheapestItem/DeleteCheapestItem.toc`.
-For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Profiles.lua`, `ProfileUI.lua`, `Broker.lua`,
+For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Gamepad.lua`, `Profiles.lua`, `ProfileUI.lua`, `Broker.lua`,
 the TOC, the entire `Libs` folder, and `Media/icon.tga` into that same folder,
 preserving the `Libs` and `Media` subfolders.
 Rebuild the icon from its source with `python scripts/build-icon.py`.
@@ -50,6 +50,12 @@ two copies. Keep your `WTF` saved-variable files when upgrading.
   `/dci ignored` to view the list, remove individual items, or reset the whole list.
   Items are saved per character; uncached items show their ID until their name loads.
 - Delete a displayed stack or sell it while a merchant is open.
+- On Forever with the controller interface enabled, the loot and ignored-items
+  windows join the native gamepad navigation. Use the D-pad to move, the
+  bottom face button to press the focused icon or button, the right face button
+  to close, and the triggers to switch between open windows. Pressing an item's
+  icon ignores it. The windows give up controller focus during combat and
+  regain it afterwards.
 - Configure quality filters, soulbound filtering, confirmation, automatic display,
   combat visibility, and optional auction prices in Settings.
 
