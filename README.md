@@ -72,7 +72,12 @@ settings. Existing saved choices are preserved; if it is currently off, enable i
 under **Window Behavior** to keep the window visible during combat.
 
 The inherited auction integrations are Auctionator, AuctionLite, Auctioneer,
-AuctionMaster, and TradeSkillMaster. Without one, the addon uses vendor values.
+AuctionMaster, and TradeSkillMaster; auxForever is also supported on Forever.
+Without one, the addon uses vendor values. **Auction price source** under
+**Auction Prices** picks the provider. **Automatic** uses the first installed one
+in that order (Auctionator, AuctionLite, Auctioneer, AuctionMaster,
+TradeSkillMaster, auxForever). A selected provider that isn't installed falls
+back to Automatic.
 Existing translations are retained; the new product name is the same in every locale.
 
 ## Profiles

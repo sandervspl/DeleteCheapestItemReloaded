@@ -464,6 +464,62 @@ function DCI.GetStackValueString(total, quantity, maxStackSize)
     return current .. " |cff888888/ " .. maximum .. "|r"
 end
 
+-- Automatic selection uses the first available provider in this order.
+DCI.AUCTION_SOURCE_AUTO = "auto"
+DCI.AuctionProviders = {
+    { key = "Auctionator",
+        available = function() return Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID end,
+        price = function(itemID) return Auctionator.API.v1.GetAuctionPriceByItemID(addonName, itemID) end },
+    { key = "AuctionLite",
+        available = function() return AuctionLite and AuctionLite.GetAuctionValue end,
+        price = function(itemID) return AuctionLite:GetAuctionValue(itemID) end },
+    { key = "Auctioneer", usesLink = true,
+        available = function() return AucAdvanced and AucAdvanced.API and AucAdvanced.API.GetMarketValue and AucAdvanced.GetFaction end,
+        price = function(_, itemLink) return (AucAdvanced.API.GetMarketValue(itemLink, AucAdvanced.GetFaction())) end },
+    { key = "AuctionMaster", usesLink = true,
+        available = function() return vendor and vendor.Statistic end,
+        price = function(_, itemLink) return select(2, vendor.Statistic:GetCurrentAuctionInfo(itemLink, false)) end },
+    { key = "TSM", usesLink = true,
+        available = function() return TSM_API and TSM_API.GetCustomPriceValue end,
+        price = function(_, itemLink) return TSM_API.GetCustomPriceValue("Dbminbuyout", TSM_API.ToItemString(itemLink)) end },
+    { key = "auxForever",
+        available = function() return AuxForeverAPI and type(AuxForeverAPI.GetLatestPrice) == "function" end,
+        price = function(itemID, itemLink) return AuxForeverAPI.GetLatestPrice(itemLink or itemID) end },
+}
+
+function DCI.GetAuctionProvider(key)
+    for _, provider in ipairs(DCI.AuctionProviders) do
+        if provider.key == key then return provider end
+    end
+end
+
+function DCI.IsAuctionProviderAvailable(key)
+    local provider = DCI.GetAuctionProvider(key)
+    return provider and provider.available() and true or false
+end
+
+-- The preferred provider wins when installed; otherwise fall back to automatic order.
+local function ResolveAuctionSource()
+    if DCI.IsAuctionProviderAvailable(DCI.db.AuctionPriceSource) then
+        return DCI.db.AuctionPriceSource
+    end
+    for _, provider in ipairs(DCI.AuctionProviders) do
+        if provider.available() then return provider.key end
+    end
+end
+
+-- Forget the resolved provider and cached prices so the next lookup re-resolves.
+function DCI.ResetAuctionSource()
+    if DCI_AuctionSource ~= ERROR_CAPS then DCI_AuctionSource = nil end
+    for key in pairs(DCI.ItemInfo) do DCI.ItemInfo[key] = nil end
+end
+
+function DCI.SetAuctionPriceSource(value)
+    DCI.db.AuctionPriceSource = value
+    DCI.ResetAuctionSource()
+    DCI.UpdateDCIFrame(false)
+end
+
 --function to check if auction prices are enabled and available
 function DCI.UseAuctionPrices(forceEnabled)
     --param: forceEnabled (boolean) - if true, overrides user setting UseAuctionPrices
@@ -474,20 +530,8 @@ function DCI.UseAuctionPrices(forceEnabled)
 
     --only check APIs if the setting is on (or forced) and we haven't already
     if (DCI.db.UseAuctionPrices or forceEnabled) and (not DCI_AuctionSource) then
-        --check for all supported APIs
-        if (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID) then
-            DCI_AuctionSource = "Auctionator"
-        elseif (AuctionLite and AuctionLite.GetAuctionValue) then
-            DCI_AuctionSource = "AuctionLite"
-        elseif (AucAdvanced and AucAdvanced.API and AucAdvanced.API.GetMarketValue and AucAdvanced.GetFaction) then
-            DCI_AuctionSource = "Auctioneer"
-        elseif (vendor and vendor.Statistic) then
-            DCI_AuctionSource = "AuctionMaster"
-        elseif (TSM_API and TSM_API.GetCustomPriceValue) then
-            DCI_AuctionSource = "TSM"
-        elseif (AuxForeverAPI and type(AuxForeverAPI.GetLatestPrice) == "function") then
-            DCI_AuctionSource = "auxForever"
-        else
+        DCI_AuctionSource = ResolveAuctionSource()
+        if not DCI_AuctionSource then
             --if no source API was found return false
             DCI.DebugPrint("No auction API was found during global check", DCI.db.UseAuctionPrices and DCI.DEBUG_OUTPUT_WARNING or DCI.DEBUG_OUTPUT_INFO)
             DCI_AuctionSource = ERROR_CAPS 
@@ -698,43 +742,15 @@ function DCI.GetAuctionPriceByItemID(itemID, itemLink)
     --quit if global auction prices disabled
     if DCI.UseAuctionPrices() == false then return nil end
 
-    local finalAuctionPrice = nil
-
-    --try to get price from different auction addons -- start with those that use itemID
-    if (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID) then
-        --Auctionator
-        finalAuctionPrice = Auctionator.API.v1.GetAuctionPriceByItemID(addonName, itemID)
-
-    elseif (AuctionLite and AuctionLite.GetAuctionValue) then
-        --AuctionLite
-        finalAuctionPrice = AuctionLite:GetAuctionValue(itemID)
-
-    --otherwise try APIs that use itemLink
-    else
-        itemLink = itemLink or DCI.ItemInfo[itemID].link
-
-        if (AucAdvanced and AucAdvanced.API and AucAdvanced.API.GetMarketValue and AucAdvanced.GetFaction) then
-            --Auctioneer
-            finalAuctionPrice, _ = AucAdvanced.API.GetMarketValue(itemLink, AucAdvanced.GetFaction())
-
-        elseif (vendor and vendor.Statistic) then
-            --AuctionMaster
-            _, finalAuctionPrice, _, _ = vendor.Statistic:GetCurrentAuctionInfo(itemLink, false)
-
-        elseif (TSM_API and TSM_API.GetCustomPriceValue) then
-            --TSM
-            local itemString = TSM_API.ToItemString(itemLink);
-            finalAuctionPrice = TSM_API.GetCustomPriceValue("Dbminbuyout", itemString);
-
-        elseif (AuxForeverAPI and type(AuxForeverAPI.GetLatestPrice) == "function") then
-            finalAuctionPrice = AuxForeverAPI.GetLatestPrice(itemLink or itemID)
-
-        else
-            --no auction API found
-            DCI.DebugPrint("Auction setting is on but no auction API was found during lookup for " .. itemLink, DCI.DEBUG_OUTPUT_WARNING)
-            return nil
-        end
+    local provider = DCI.GetAuctionProvider(DCI_AuctionSource)
+    if not (provider and provider.available()) then
+        DCI.DebugPrint("Auction setting is on but no auction API was found during lookup for " .. tostring(itemLink or itemID), DCI.DEBUG_OUTPUT_WARNING)
+        return nil
     end
+    if provider.usesLink then
+        itemLink = itemLink or DCI.ItemInfo[itemID].link
+    end
+    local finalAuctionPrice = provider.price(itemID, itemLink)
 
     --subtract 5% auction cut
     if DCI.db.SubtractAuctionCut and finalAuctionPrice then
@@ -2149,7 +2165,7 @@ end
 
 function DCI.ApplyProfile()
     DCI.InitializeSavedVariables()
-    for key in pairs(DCI.ItemInfo) do DCI.ItemInfo[key] = nil end
+    DCI.ResetAuctionSource()
     if DCI.IgnoredItemsFrame then
         local frame = DCI.IgnoredItemsFrame
         local position = DCI.db.IgnoredWindowPosition
@@ -2217,7 +2233,9 @@ function DCI.CreateDCISettings()
     end
 
     --local function to create settings dropdown
-    local function CreateConfigPanelDropdown(ParentFrame, OffsetX, OffsetY, DropdownVariable, DropdownText, DropdownValues, DropdownChoices, DropdownWidth)
+    -- DropdownOptions (optional): isEnabled(value) disables menu entries; onSelect(value) replaces the default save.
+    local function CreateConfigPanelDropdown(ParentFrame, OffsetX, OffsetY, DropdownVariable, DropdownText, DropdownValues, DropdownChoices, DropdownWidth, DropdownOptions)
+        DropdownOptions = DropdownOptions or {}
         local dropdownFrame = CreateFrame("DropdownButton", "DCI_Config_Dropdown_"..DropdownVariable, ParentFrame, "WowStyle1DropdownTemplate")
         dropdownFrame:SetPoint("TOPLEFT", ParentFrame, "TOPLEFT", OffsetX+275+27, OffsetY-11)
         dropdownFrame:SetWidth(DropdownWidth or 250)
@@ -2232,8 +2250,12 @@ function DCI.CreateDCISettings()
         --setup dropdown
         dropdownFrame:SetupMenu(function(dropdown, rootDescription)
             for i = 1,#DropdownChoices do
-                rootDescription:CreateButton(DropdownChoices[i], function()
-                    DCI.db[DropdownVariable] = DropdownValues[i]
+                local button = rootDescription:CreateButton(DropdownChoices[i], function()
+                    if DropdownOptions.onSelect then
+                        DropdownOptions.onSelect(DropdownValues[i])
+                    else
+                        DCI.db[DropdownVariable] = DropdownValues[i]
+                    end
                     dropdownFrame:SetDefaultText(DropdownChoices[i])
                     DCI.UpdateDCIFrame(false)
 
@@ -2244,6 +2266,9 @@ function DCI.CreateDCISettings()
                         DCI_Config_Checkbox_AuctionGreyUnderVendor:Disable()
                     end
                 end)
+                if DropdownOptions.isEnabled then
+                    button:SetEnabled(DropdownOptions.isEnabled(DropdownValues[i]) and true or false)
+                end
             end
         end)
 
@@ -2292,7 +2317,7 @@ function DCI.CreateDCISettings()
     scrollFrame.ScrollBar.scrollStep = 27
 
     local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
-    ConfigFrame:SetSize(635, 1027)
+    ConfigFrame:SetSize(635, 1054)
     scrollFrame:SetScrollChild(ConfigFrame)
     scrollFrame:HookScript("OnSizeChanged", function(self, width)
         ConfigFrame:SetWidth(math.max(635, width))
@@ -2417,7 +2442,8 @@ function DCI.CreateDCISettings()
     ---------------------------
 
     --section for auction settings
-    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27-27, 6*27+15, L["Auction Prices"])
+    local Section_AuctionSettings = CreateConfigPanelSection(ConfigFrame, 0, -395-30+16-27-27-27, 7*27+15, L["Auction Prices"])
+    local UpdateAuctionFrameState
 
     --checkbox for UseAuctionPrices
     local Checkbox_UseAuctionPrices = CreateConfigPanelCheckbox(Section_AuctionSettings, 0, 0*-27, "UseAuctionPrices", L["Use auction prices"])
@@ -2469,8 +2495,27 @@ function DCI.CreateDCISettings()
     --checkbox for AuctionPriceHidePoorQuality
     local Checkbox_AuctionHidePoor = CreateConfigPanelCheckbox(auctionSettingsDisableFrame, 0, 5*-27, "AuctionPriceHidePoorQuality", L["Ignore auction price for grey quality items"])
 
+    -- dropdown for AuctionPriceSource; providers that are not loaded stay listed but disabled
+    local auctionSourceChoices = {L["Automatic"]}
+    local auctionSourceValues = {DCI.AUCTION_SOURCE_AUTO}
+    for _, provider in ipairs(DCI.AuctionProviders) do
+        local label = provider.key
+        if not provider.available() then label = label .. " (" .. L["not installed"] .. ")" end
+        table.insert(auctionSourceChoices, label)
+        table.insert(auctionSourceValues, provider.key)
+    end
+    local Dropdown_AuctionPriceSource = CreateConfigPanelDropdown(auctionSettingsDisableFrame, 0, 6*-27, "AuctionPriceSource", L["Auction price source"], auctionSourceValues, auctionSourceChoices, nil, {
+        isEnabled = function(value)
+            return value == DCI.AUCTION_SOURCE_AUTO or DCI.IsAuctionProviderAvailable(value)
+        end,
+        onSelect = function(value)
+            DCI.SetAuctionPriceSource(value)
+            UpdateAuctionFrameState()
+        end,
+    })
+
     --hook function to update auction frame enable/disable state
-    local function UpdateAuctionFrameState()
+    function UpdateAuctionFrameState()
         local disableAuctionSettings = false
         if not DCI.UseAuctionPrices(true) then
             --if no API available at all, disable the global auction setting and flag the rest for disable
@@ -2566,6 +2611,7 @@ function DCI.InitializeSavedVariables(resetDefaults)
 
     --set default values
     if DCI.db.UseAuctionPrices == nil then DCI.db.UseAuctionPrices = true end
+    if DCI.db.AuctionPriceSource == nil then DCI.db.AuctionPriceSource = DCI.AUCTION_SOURCE_AUTO end
     if DCI.db.SubtractAuctionCut == nil then DCI.db.SubtractAuctionCut = true end
     if DCI.db.AuctionPriceHidePoorQuality == nil then DCI.db.AuctionPriceHidePoorQuality = true end
     if DCI.db.AuctionGreyUnderVendor == nil then DCI.db.AuctionGreyUnderVendor = true end

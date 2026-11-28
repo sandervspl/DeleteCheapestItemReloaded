@@ -3,7 +3,7 @@ local L = DCI.L
 
 function DCI.CreateProfileControls(parent)
     local section = CreateFrame("Frame", "DCI_ProfileControls", parent)
-    section:SetPoint("TOPLEFT", 16, -707)
+    section:SetPoint("TOPLEFT", 16, -734)
     section:SetSize(600, 310)
     local heading = section:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", 0, 0)
