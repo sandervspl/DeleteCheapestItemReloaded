@@ -22,5 +22,6 @@ Localization.lua
 Gamepad.lua
 Profiles.lua
 ProfileUI.lua
+SoulShards.lua
 DeleteCheapestItem.lua
 Broker.lua

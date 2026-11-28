@@ -76,6 +76,7 @@ function Helpers.loadAddon(options)
     function methods:IsVisible() return self.shown and (not self.parent or self.parent:IsVisible()) end
     function methods:Enable() self.enabled = true; self:Fire("OnEnable") end
     function methods:Disable() self.enabled = false; self:Fire("OnDisable") end
+    function methods:IsEnabled() return self.enabled end
     function methods:SetAtlas(atlas) self.atlas = atlas end
     function methods:SetChecked(value) self.checked = value end
     function methods:GetChecked() return self.checked end

@@ -972,14 +972,17 @@ function DCI.GetSortedBagItems()
     --Create item array
 	local bagItems = {}
     local bagItemCount = 0
+    -- With the Soul Shard limit on, it alone decides whether shards are listed.
+    local shardLimitActive = DCI.IsSoulShardLimitActive()
+    local hasExtraShards = shardLimitActive and DCI.CountExtraSoulShards() > 0
 
     -- Iterate through all bags
     for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS) do
         -- Get the number of slots in the bag
         local numSlots = C_Container.GetContainerNumSlots(bag)
         local _, bagFamily = C_Container.GetContainerNumFreeSlots(bag)
-        -- Ammo bags cannot make room for ordinary loot.
-        if bagFamily == 1 or bagFamily == 2 then numSlots = 0 end
+        -- Ammo and soul bags cannot make room for ordinary loot.
+        if bagFamily == 1 or bagFamily == 2 or bagFamily == DCI.SOUL_BAG_FAMILY then numSlots = 0 end
 
         -- Iterate through all slots in the bag
         for slot = 1, numSlots do
@@ -1008,12 +1011,18 @@ function DCI.GetSortedBagItems()
                 --  and quest items 
                 --  and soulbound items (if HideSoulbound)
                 --  and items with quality above threshold
+                local passesFilters
+                if shardLimitActive and itemID == DCI.SOUL_SHARD_ITEM_ID then
+                    passesFilters = hasExtraShards and not DCI.IsSoulShardPendingDeletion(bag, slot)
+                else
+                    passesFilters = newBagItem.quality ~= nil
+                        and not DCI.IsItemIgnored(itemID)
+                        and not newBagItem.isQuestItem
+                        and (not newBagItem.isSoulbound or not DCI.db.HideSoulbound)
+                        and newBagItem.quality <= DCI.db.MaxQuality
+                end
                 if (DCI.ItemInfo[itemID].name and DCI.ItemInfo[itemID].vendorPricePer ~= nil
-                    and newBagItem.quality ~= nil
-                    and not DCI.IsItemIgnored(itemID)
-                    and not newBagItem.isQuestItem
-                    and (not newBagItem.isSoulbound or not DCI.db.HideSoulbound)
-                    and newBagItem.quality <= DCI.db.MaxQuality) then
+                    and newBagItem.quality ~= nil and passesFilters) then
     	            -- Append info
     	            newBagItem.bag = bag
     	            newBagItem.slot = slot
@@ -1155,11 +1164,32 @@ function DCI.GetActionableBagItem(bag, slot, expected)
     local bound = item.isBound
     if bound == nil then bound = C_Item.IsBound(ItemLocation:CreateFromBagAndSlot(bag, slot)) end
     local quality = item.quality or DCI.ItemInfo[item.itemID].quality
+    if item.itemID == DCI.SOUL_SHARD_ITEM_ID and DCI.IsSoulShardLimitActive() then
+        local _, bagFamily = C_Container.GetContainerNumFreeSlots(bag)
+        if bagFamily == DCI.SOUL_BAG_FAMILY or not quality or DCI.CountExtraSoulShards() == 0 then return nil end
+        return item, quality
+    end
     if item.itemID == 6948 or DCI.IsItemIgnored(item.itemID)
         or (quest and (quest.isQuestItem or quest.questID ~= nil))
         or (DCI.db.HideSoulbound and bound)
         or not quality or quality > DCI.db.MaxQuality then return nil end
     return item, quality
+end
+
+-- Deletes a slot's stack only when the cursor confirms it picked up the expected item.
+function DCI.DeleteBagSlotItem(bag, slot, itemID)
+    C_Container.PickupContainerItem(bag, slot)
+    local cursorType, cursorItemID = GetCursorInfo()
+    if cursorType ~= "item" or cursorItemID ~= itemID then
+        ClearCursor()
+        return false
+    end
+    DeleteCursorItem()
+    if GetCursorInfo() ~= nil then
+        ClearCursor()
+        return false
+    end
+    return true
 end
 
 function DCI.SellBagItem(bag, slot, expected)
@@ -1179,17 +1209,7 @@ function DCI.ConfirmAndDeleteBagItem(bag, slot, expected, onDeleted)
     local function DeleteBagItemForReal()
         if generation ~= DCI.profileGeneration then return false end
         if not DCI.GetActionableBagItem(bag, slot, snapshot) then return false end
-        C_Container.PickupContainerItem(bag, slot)
-        local cursorType, cursorItemID = GetCursorInfo()
-        if cursorType ~= "item" or cursorItemID ~= snapshot.itemID then
-            ClearCursor()
-            return false
-        end
-        DeleteCursorItem()
-        if GetCursorInfo() ~= nil then
-            ClearCursor()
-            return false
-        end
+        if not DCI.DeleteBagSlotItem(bag, slot, snapshot.itemID) then return false end
         DCI.DebugPrint(L["Deleting item: "] .. itemText, DCI.DEBUG_OUTPUT_FORCED)
         if onDeleted then onDeleted() end
         return true
@@ -2161,6 +2181,7 @@ function DCI.PrepareProfileChange()
     DCI.InvErrWaitForLootFrame = false
     StaticPopup_Hide("DCI_RELOADED_DELETE_ITEM")
     StaticPopup_Hide("DCI_PROFILE_ACTION")
+    DCI.CancelSoulShardCleanupRequest()
 end
 
 function DCI.ApplyProfile()
@@ -2181,6 +2202,7 @@ function DCI.ApplyProfile()
     DCI.UpdateDCIFrame(false)
     if DCI_ConfigPanel then DCI.UpdateDCISettings() end
     if DCI.RefreshProfileControls then DCI.RefreshProfileControls() end
+    DCI.RequestSoulShardCleanup()
 end
 
 function DCI.UpdateEscapeBehavior()
@@ -2317,7 +2339,9 @@ function DCI.CreateDCISettings()
     scrollFrame.ScrollBar.scrollStep = 27
 
     local ConfigFrame = CreateFrame("Frame", "DCI_ConfigPanel", scrollFrame)
-    ConfigFrame:SetSize(635, 1054)
+    -- The Soul Shards section only exists where shards are bag items.
+    local soulShardSectionHeight = DCI.SoulShardsSupported() and 5*27+16+20 or 0
+    ConfigFrame:SetSize(635, 1054 + soulShardSectionHeight)
     scrollFrame:SetScrollChild(ConfigFrame)
     scrollFrame:HookScript("OnSizeChanged", function(self, width)
         ConfigFrame:SetWidth(math.max(635, width))
@@ -2574,7 +2598,86 @@ function DCI.CreateDCISettings()
     end
     ConfigFrame:HookScript("OnShow", function(self) UpdateAuctionFrameState() end)
     Checkbox_UseAuctionPrices:HookScript("OnClick", function(self) UpdateAuctionFrameState() end)
-    DCI.CreateProfileControls(ConfigFrame)
+
+    ---------------------------
+
+    if DCI.SoulShardsSupported() then
+        local Section_SoulShards = CreateConfigPanelSection(ConfigFrame, 0, -714, 5*27+16, L["Soul Shards"])
+        local function ApplySoulShardChange(self)
+            if self then DCI.db[self.DCI_UpdateVariable] = self:GetChecked() and true or false end
+            DCI.UpdateSoulShardSettings()
+            DCI.RegisterFrameEvents()
+            DCI.UpdateDCIFrame(false)
+            DCI.RequestSoulShardCleanup()
+        end
+        local Checkbox_ShardLimit = CreateConfigPanelCheckbox(Section_SoulShards, 0, 0*-27, "SoulShardLimitEnabled", L["Limit Soul Shards"], ApplySoulShardChange)
+
+        local shardLimitLabel = Section_SoulShards:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        shardLimitLabel:SetPoint("TOPLEFT", Section_SoulShards, "TOPLEFT", 12+27, 1*-27-18)
+        shardLimitLabel:SetText(L["Keep at most this many Soul Shards"])
+        local ShardLimit = CreateFrame("EditBox", "DCI_Config_SoulShardLimit", Section_SoulShards, "InputBoxTemplate")
+        ShardLimit:SetPoint("TOPLEFT", Section_SoulShards, "TOPLEFT", 545, 1*-27-7)
+        ShardLimit:SetSize(40, 24)
+        ShardLimit:SetNumeric(true)
+        ShardLimit:SetMaxLetters(3)
+        ShardLimit:SetAutoFocus(false)
+        ShardLimit:SetText(tostring(DCI.db.SoulShardLimit))
+        ShardLimit:SetCursorPosition(0)
+        ShardLimit:HookScript("OnShow", function(self) self:SetCursorPosition(0) end)
+        ShardLimit.DCI_FrameType = DCI.FRAME_EDITBOX
+        ShardLimit.DCI_UpdateVariable = "SoulShardLimit"
+        ShardLimit:HookScript("OnMouseDown", function(self) if self:IsEnabled() then self:SetFocus() end end)
+        ShardLimit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        ShardLimit:SetScript("OnEscapePressed", function(self)
+            self:SetText(tostring(DCI.db.SoulShardLimit))
+            self:ClearFocus()
+        end)
+        -- Commit only on Enter or focus loss: typing 15 must never apply 1 on the way.
+        ShardLimit:HookScript("OnEditFocusLost", function(self)
+            local enteredValue = tonumber(self:GetText())
+            local value = math.max(0, math.min(999, enteredValue or DCI.db.SoulShardLimit))
+            if enteredValue ~= value then self:SetText(tostring(value)) end
+            self:SetCursorPosition(0)
+            if value ~= DCI.db.SoulShardLimit then
+                DCI.db.SoulShardLimit = value
+                ApplySoulShardChange()
+            end
+        end)
+
+        local Checkbox_ShardAutoDelete = CreateConfigPanelCheckbox(Section_SoulShards, 0, 2*-27, "SoulShardAutoDelete", L["Delete extra shards automatically"], ApplySoulShardChange)
+        local Checkbox_ShardAnnounce = CreateConfigPanelCheckbox(Section_SoulShards, 0, 3*-27, "SoulShardAnnounce", L["Announce automatic deletions in chat"])
+
+        local shardNote = Section_SoulShards:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        shardNote:SetPoint("TOPLEFT", Section_SoulShards, "TOPLEFT", 12, 4*-27-14)
+        shardNote:SetSize(590, 20)
+        shardNote:SetJustifyH("LEFT")
+        shardNote:SetText(L["Shards in soul bags and ignored Soul Shards are never deleted."])
+
+        function DCI.UpdateSoulShardSettings()
+            local limitOn = DCI.db.SoulShardLimitEnabled
+            Checkbox_ShardLimit:SetChecked(limitOn)
+            Checkbox_ShardAutoDelete:SetChecked(DCI.db.SoulShardAutoDelete)
+            if limitOn then
+                ShardLimit:Enable()
+                shardLimitLabel:SetTextColor(1, 1, 1)
+                Checkbox_ShardAutoDelete:Enable()
+            else
+                ShardLimit:ClearFocus()
+                ShardLimit:Disable()
+                shardLimitLabel:SetTextColor(0.5, 0.5, 0.5)
+                Checkbox_ShardAutoDelete:Disable()
+            end
+            if limitOn and DCI.db.SoulShardAutoDelete then
+                Checkbox_ShardAnnounce:Enable()
+            else
+                Checkbox_ShardAnnounce:Disable()
+            end
+        end
+        ConfigFrame:HookScript("OnShow", DCI.UpdateSoulShardSettings)
+        DCI.UpdateSoulShardSettings()
+    end
+
+    DCI.CreateProfileControls(ConfigFrame, -734 - soulShardSectionHeight)
     settingsWidgetsReady = true
     SkinSettings()
 end
@@ -2636,6 +2739,11 @@ function DCI.InitializeSavedVariables(resetDefaults)
     if DCI.db.Auto_QuestAccept == nil then DCI.db.Auto_QuestAccept = true end
     if DCI.db.Auto_QuestComplete == nil then DCI.db.Auto_QuestComplete = true end
     if DCI.db.Auto_Roll == nil then DCI.db.Auto_Roll = true end
+    if DCI.db.SoulShardLimitEnabled == nil then DCI.db.SoulShardLimitEnabled = false end
+    if DCI.db.SoulShardLimit == nil then DCI.db.SoulShardLimit = 10 end
+    DCI.db.SoulShardLimit = math.max(0, math.min(999, math.floor(tonumber(DCI.db.SoulShardLimit) or 10)))
+    if DCI.db.SoulShardAutoDelete == nil then DCI.db.SoulShardAutoDelete = false end
+    if DCI.db.SoulShardAnnounce == nil then DCI.db.SoulShardAnnounce = true end
 
     DCI.InitializeBroker()
     DCI.UpdateEscapeBehavior()
@@ -2673,7 +2781,15 @@ function DCI.RegisterFrameEvents()
         DCIFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     end
 
-    if not DCI.db.AllowInCombat or DCI.WindowDebug then
+    -- Ignoring shards later pauses the limit without changing these settings.
+    local shardAutoDelete = DCI.SoulShardsSupported() and DCI.db.SoulShardLimitEnabled and DCI.db.SoulShardAutoDelete
+    if shardAutoDelete then
+        DCIFrame:RegisterEvent("ITEM_LOCK_CHANGED")
+    else
+        DCIFrame:UnregisterEvent("ITEM_LOCK_CHANGED")
+    end
+
+    if not DCI.db.AllowInCombat or DCI.WindowDebug or shardAutoDelete then
         DCIFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
         DCIFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     else
@@ -2811,6 +2927,12 @@ function DCI.HandleEvent(self, event, ...)
         rawset(DCI.ItemInfo, arg1, nil)
         if DCI.IsItemIgnored(arg1) then DCI.RefreshIgnoredItems() end
         if DCIFrame:IsShown() then DCI.UpdateDCIFrame(false) end
+    end
+
+    if event == "BAG_UPDATE" then
+        DCI.HandleSoulShardBagUpdate(arg1)
+    elseif event == "ITEM_LOCK_CHANGED" or event == "PLAYER_REGEN_ENABLED" then
+        DCI.QueueSoulShardCleanup()
     end
 
     --update frame if bag updates while it is open

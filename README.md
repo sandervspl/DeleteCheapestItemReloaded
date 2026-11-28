@@ -22,7 +22,7 @@ part of this release's support matrix.
 
 Extract the release ZIP into the selected client's `Interface/AddOns` directory.
 The resulting manifest must be `Interface/AddOns/DeleteCheapestItem/DeleteCheapestItem.toc`.
-For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Gamepad.lua`, `Profiles.lua`, `ProfileUI.lua`, `Broker.lua`,
+For a source checkout, copy `DeleteCheapestItem.lua`, `Localization.lua`, `Gamepad.lua`, `Profiles.lua`, `ProfileUI.lua`, `SoulShards.lua`, `Broker.lua`,
 the TOC, the entire `Libs` folder, and `Media/icon.tga` into that same folder,
 preserving the `Libs` and `Media` subfolders.
 Rebuild the icon from its source with `python scripts/build-icon.py`.
@@ -78,6 +78,29 @@ Without one, the addon uses vendor values. **Auction price source** under
 in that order (Auctionator, AuctionLite, Auctioneer, AuctionMaster,
 TradeSkillMaster, auxForever). A selected provider that isn't installed falls
 back to Automatic.
+
+## Soul Shards
+
+On Classic Era, Burning Crusade Classic Anniversary and Forever, the **Soul Shards**
+section in Settings keeps your shard count in check. It is not shown on Mists of
+Pandaria Classic, where Soul Shards are a resource instead of bag items.
+
+- **Limit Soul Shards** (off by default) sets how many shards to keep. Only shards
+  beyond **Keep at most this many Soul Shards** (default `10`) appear in the window,
+  even when other filters such as the maximum quality would hide them. A new limit
+  applies when you press Enter or leave the box.
+- **Delete extra shards automatically** (off by default) deletes the extra shards
+  after your bags change, without a confirmation per shard. It waits until you
+  leave combat and until nothing is on your cursor. When you turn it on, lower the
+  limit, or switch to a profile that would delete shards right away, a confirmation
+  shows how many will be deleted; choosing **No** turns automatic deletion off.
+- **Announce automatic deletions in chat** (on by default) prints one chat line for
+  each automatic cleanup.
+
+**Shards in soul bags are ignored**: they never count toward the limit and are never
+deleted. **Ignored items win**: if Soul Shard is on your ignore list, the limit does
+nothing. Items in soul bags are never listed in the window, since deleting them
+cannot make room for other loot. The settings belong to the profile.
 Existing translations are retained; the new product name is the same in every locale.
 
 ## Profiles

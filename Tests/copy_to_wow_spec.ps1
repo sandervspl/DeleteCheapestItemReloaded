@@ -53,7 +53,7 @@ try {
     & $scriptPath -WowRoot $fixtureRoot
     foreach ($name in $expectedClients) {
         $destination = Join-Path $fixtureRoot "$name\Interface\AddOns\DeleteCheapestItem"
-        $runtimeFiles = @("DeleteCheapestItem.toc", "Localization.lua", "Gamepad.lua", "Profiles.lua", "ProfileUI.lua", "DeleteCheapestItem.lua", "Broker.lua", "Media\icon.tga")
+        $runtimeFiles = @("DeleteCheapestItem.toc", "Localization.lua", "Gamepad.lua", "Profiles.lua", "ProfileUI.lua", "SoulShards.lua", "DeleteCheapestItem.lua", "Broker.lua", "Media\icon.tga")
         $runtimeFiles += Get-ChildItem -LiteralPath (Join-Path $projectRoot "Libs") -File -Recurse | ForEach-Object {
             $_.FullName.Substring($projectRoot.Length + 1)
         }
