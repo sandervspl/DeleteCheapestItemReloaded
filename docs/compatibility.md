@@ -210,3 +210,9 @@ Before publishing, perform these checks in each client:
 7. Select loot beyond the first page in Classic or a recycled row in Forever;
    verify the selected slot is retried after deletion is accepted.
 8. Check combat visibility and auction comparisons with the auction addon you use.
+9. On a warlock in Classic Era, Anniversary and Forever, enable the Soul Shard
+   limit and automatic deletion. Confirm that extra shards are deleted after a bag
+   change with no click (`DeleteCursorItem` is marked `HasRestrictions` and may
+   require a hardware event), that shards in a soul bag are untouched, and that the
+   confirmation appears when lowering the limit. Verify Soul Shard is item `6265`
+   on each client; the UI source does not include item data.
